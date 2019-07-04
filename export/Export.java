@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -37,22 +38,26 @@ public class Export {
         Set<Label> relationTypes = schemaTx.getSchemaConcept(Label.of("relation")).subs().filter(type -> !type.asRelationType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
         schemaTx.close();
 
-        Path exportRoot = Paths.get("/Users/joshua/Documents/experimental/grakn-migrate/data");
+        Path exportRoot = Paths.get("/tmp/data");
+        Files.createDirectories(exportRoot);
 
         for (Label entityType : entityTypes) {
             Path outputFolder = exportRoot.resolve("entity");
+            Files.createDirectories(outputFolder);
             int exportedEntities = writeEntities(session, entityType, outputFolder);
             LOG.info("Exported entity type: " + entityType + ", count: " + exportedEntities);
         }
 
         for (Label attributeType : attributeTypes) {
             Path outputFolder = exportRoot.resolve("attribute");
+            Files.createDirectories(outputFolder);
             int insertedAttributes = writeAttributes(session, attributeType, outputFolder);
             LOG.info("Exported attribute type: " + attributeType + ", count: " + insertedAttributes);
         }
 
         for (Label explicitRelationType : relationTypes.stream().filter(label -> !label.toString().startsWith("@")).collect(Collectors.toSet())) {
             Path outputFolder = exportRoot.resolve("relation");
+            Files.createDirectories(outputFolder);
             int exportedRelations = writeExplicitRelations(session, explicitRelationType, outputFolder);
             LOG.info("Exported relation type: " + explicitRelationType + ", count: " + exportedRelations);
         }
@@ -60,6 +65,7 @@ public class Export {
         for (Label attributeType : attributeTypes) {
             LOG.info("Export ownerships for attribute type: " + attributeType);
             Path outputFolder = exportRoot.resolve("ownership");
+            Files.createDirectories(outputFolder);
             int exportedOwnerships = writeImplicitRelations(session, attributeType, outputFolder);
             LOG.info("Exported ownerships type: " + attributeType + ", count: " + exportedOwnerships);
         }
