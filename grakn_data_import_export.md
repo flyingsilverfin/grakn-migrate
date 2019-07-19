@@ -3,6 +3,10 @@
 The goal of this sort of a tool would be to migrate data between Grakn versions. It assumes the start and end schema are identical, but there may be breaking changes within Grakn's storage
 or Graql syntax. The other requirement is that Grakn's data model has fundamentally changed from the entity-hyperrelation-attribute model.
 
+
+** Note: this does NOT work for any schemas that contain keys for now
+** Note: this does NOT work for attaching anything to implicit ownerships
+
 ### Overview
 The steps would be to dump all the concepts by ID into a custom data file(s) that can then be read in by a matching import program. 
 Most of the complexity would lie in the import program, which has to re-map IDs from the prior Grakn instance to new IDs
@@ -39,7 +43,7 @@ Relation files:
 parenthesis optional, may make visual debugging easier in development etc.
 
 Attribute ownership files:
-* per line: owner ID, attribute ID
+* per line: attributeId, owner ID
 
 #### Data import
 

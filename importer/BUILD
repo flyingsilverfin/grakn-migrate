@@ -1,7 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 java_library(
-    name = "grakn-export",
+    name = "grakn-import",
     srcs = glob(["*.java"]),
     deps = [
         "@graknlabs_client_java//:client-java",
@@ -15,9 +15,9 @@ java_library(
 )
 
 java_binary(
-    name = "grakn-export-binary",
+    name = "grakn-import-binary",
     runtime_deps = [
-        "//export:grakn-export"
+        "//importer:grakn-import"
     ],
     main_class = "migrate.importer.Import",
     visibility = ["//visibility:public"],

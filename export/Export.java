@@ -38,7 +38,8 @@ public class Export {
         Set<Label> relationTypes = schemaTx.getSchemaConcept(Label.of("relation")).subs().filter(type -> !type.asRelationType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
         schemaTx.close();
 
-        Path exportRoot = Paths.get("/tmp/data");
+//        Path exportRoot = Paths.get("/tmp/data_old");
+        Path exportRoot = Paths.get("/Users/joshua/Documents/experimental/grakn-migrate/data");
         Files.createDirectories(exportRoot);
 
         for (Label entityType : entityTypes) {
@@ -178,6 +179,8 @@ public class Export {
             File outputFile = root.resolve(attributeType.label().toString()).toFile();
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
+
+                // TODO work out how to also store the implicit relation ID
 
                 int[] count = new int[] {0};
                 attributeType.instances().forEach(concept -> {
