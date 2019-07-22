@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -25,6 +24,8 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static migrate.export.Schema.exportSchema;
 
 public class Export {
     private static final Logger LOG = LoggerFactory.getLogger(Export.class);
@@ -75,63 +76,7 @@ public class Export {
         }
     }
 
-    private static void exportSchema(Path exportRoot, GraknClient.Session session) throws IOException {
 
-        /*
-        Exporting the schema is generally harder than exporting data due to the hierarchy of types
-
-        General method of exporting hierarchy:
-        * take each child type, and write child, parent type
-        * repeat this up to meta types (Role, Entity, Relation, Attribute)
-
-        Include with attribute the data type
-
-        Because we do it all in 1 tx, we can iteratively add things -
-
-        1. export roles (ie. hierarchy)
-        2. export attributes with data types, followed by a list of `plays` (role, role...) and `has` (attr, attr...)
-        3. export relations similarly
-        4. export entities
-         */
-
-
-        Path schemaRoot = exportRoot.resolve("schema");
-        Files.createDirectories(schemaRoot);
-
-        GraknClient.Transaction tx = session.transaction().write();
-//
-//        // export roles
-//        final File outputFileRole = schemaRoot.resolve("roles").toFile();
-//        tx.getRole("role").subs().forEach(role -> {
-//            try (Writer writer = new BufferedWriter(new OutputStreamWriter(
-//                    new FileOutputStream(outputFileRole), StandardCharsets.UTF_8))) {
-//
-//                writer.write(role.label().toString());
-//                writer.write("\n");
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        });
-//
-//        // export attributes, cannot handle attributes on attributes or attributes playing roles for now
-//        final File outputFileAttr = schemaRoot.resolve("attributes").toFile();
-//        tx.getAttributeType("attribute").subs().forEach(attrType -> {
-//            try (Writer writer = new BufferedWriter(new OutputStreamWriter(
-//                    new FileOutputStream(outputFileAttr), StandardCharsets.UTF_8))) {
-//
-//                writer.write(attrType.label().toString());
-//                writer.write(",");
-//                writer.write(attrType.dataType().name());
-//                writer.
-//                writer.write("\n");
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        });
-
-
-
-    }
 
     /**
      * Write one entity concept ID per line
