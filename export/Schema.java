@@ -146,28 +146,30 @@ public class Schema {
         Stack<String> exportingTypes = new Stack<>();
         exportingTypes.push("attribute");
         try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFileAttribute), StandardCharsets.UTF_8))) {
-            // first iteration of subs of attribute is interesting because we have to store datatype too
-            String type = exportingTypes.pop();
-            Stream<Concept> subtypes = filteredDirectSub(tx, type);
-            subtypes.forEach(subtype -> {
-                SchemaConcept parent = subtype.asType().sup();
-                String subtypeLabel = subtype.asType().label().toString();
-                exportingTypes.push(subtypeLabel);
-                try {
-                    writer.write(subtypeLabel);
-                    writer.write(",");
-                    writer.write(parent.label().toString());
-                    writer.write(",");
-                    writer.write(subtype.asAttributeType().dataType().dataClass().getSimpleName());
-                    writer.write("\n");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
+            while (!exportingTypes.isEmpty()) {
+                // first iteration of subs of attribute is interesting because we have to store datatype too
+                String type = exportingTypes.pop();
+                Stream<Concept> subtypes = filteredDirectSub(tx, type);
+                subtypes.forEach(subtype -> {
+                    SchemaConcept parent = subtype.asType().sup();
+                    String subtypeLabel = subtype.asType().label().toString();
+                    exportingTypes.push(subtypeLabel);
+                    try {
+                        writer.write(subtypeLabel);
+                        writer.write(",");
+                        writer.write(parent.label().toString());
+                        writer.write(",");
+                        writer.write(subtype.asAttributeType().dataType().dataClass().getSimpleName());
+                        writer.write("\n");
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
         }
 
-        // export rest of attribute hierarchy beyond the first level types
-        exportExplicitHierarchy(exportingTypes, outputFileAttribute, tx, true);
+//         export rest of attribute hierarchy beyond the first level types
+//        exportExplicitHierarchy(exportingTypes, outputFileAttribute, tx, true);
         tx.close();
     }
 

@@ -26,15 +26,19 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static migrate.importer.Schema.importSchema;
+
 
 public class Import {
     private static final Logger LOG = LoggerFactory.getLogger(Import.class);
 
     public static void main(String[] args) throws IOException {
         GraknClient client = new GraknClient("localhost:48555");
-        GraknClient.Session session = client.session("testing_import");
+        GraknClient.Session session = client.session("taxfix_reimport3");
 //        Path importPath = Paths.get("/tmp/data_old");
         Path importPath = Paths.get("/Users/joshua/Documents/experimental/grakn-migrate/data");
+
+        importSchema(session, importPath);
 
         Map<String, ConceptId> idRemapping = new HashMap<>();
 
@@ -287,6 +291,8 @@ public class Import {
                         attrInstance = attributeType.create(Double.parseDouble(value));
                     } else if (dataClass.equals(String.class)) {
                         attrInstance = attributeType.create(value);
+                    } else if (dataClass.equals(Boolean.class)) {
+                        attrInstance = attributeType.create(Boolean.parseBoolean(value));
                     } else {
                         throw new RuntimeException("Unhandled datatype: " + dataClass);
                     }

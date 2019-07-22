@@ -32,7 +32,7 @@ public class Export {
 
     public static void main(String[] args) throws IOException {
         GraknClient client = new GraknClient("localhost:48555");
-        GraknClient.Session session = client.session("road_network_r_21");
+        GraknClient.Session session = client.session("s_acadc9f5c73741329a75e0c40b5aa9c4");
 
         GraknClient.Transaction schemaTx = session.transaction().read();
         Set<Label> entityTypes = schemaTx.getSchemaConcept(Label.of("entity")).subs().filter(type -> !type.asEntityType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
