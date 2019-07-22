@@ -2,9 +2,9 @@ package migrate.export;
 
 import grakn.client.GraknClient;
 import grakn.core.concept.Concept;
+import grakn.core.concept.Label;
 import grakn.core.concept.type.SchemaConcept;
 import graql.lang.Graql;
-import graql.lang.property.HasAttributeProperty;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -14,9 +14,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Stack;
 import java.util.stream.Collectors;
@@ -71,20 +69,21 @@ public class Schema {
         Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8));
 
         GraknClient.Transaction tx = session.transaction().write();
-        tx.getAttributeType("attribute").subs().forEach(attributeType -> {
-            tx.stream(Graql.match(Graql.var("x").has(attributeType.label().toString())).get("x"))
-                    .map(answer -> answer.get("x").asSchemaConcept())
-                    .forEach(owner -> {
-                        try {
-                            writer.write(owner.label().toString());
-                            writer.write(",");
-                            writer.write(attributeType.label().toString());
-                            writer.write("\n");
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    });
+
+        tx.getSchemaConcept(Label.of("thing")).subs().forEach(schemaConcept -> {
+            schemaConcept.asType().attributes().forEach(attributeType -> {
+                try {
+                    writer.write(schemaConcept.label().toString());
+                    writer.write(",");
+                    writer.write(attributeType.label().toString());
+                    writer.write("\n");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
         });
+
+
         writer.flush();
         writer.close();
         tx.close();
@@ -159,7 +158,7 @@ public class Schema {
                     writer.write(",");
                     writer.write(parent.label().toString());
                     writer.write(",");
-                    writer.write(subtype.asAttributeType().dataType().name());
+                    writer.write(subtype.asAttributeType().dataType().dataClass().getSimpleName());
                     writer.write("\n");
                 } catch (IOException e) {
                     e.printStackTrace();
