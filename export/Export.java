@@ -2,12 +2,15 @@ package migrate.export;
 
 import grakn.client.GraknClient;
 import grakn.core.concept.Label;
+import grakn.core.concept.answer.Numeric;
 import grakn.core.concept.thing.Thing;
 import grakn.core.concept.type.AttributeType;
 import grakn.core.concept.type.EntityType;
 import grakn.core.concept.type.RelationType;
 import grakn.core.concept.type.Role;
 import grakn.core.concept.type.SchemaConcept;
+import graql.lang.Graql;
+import graql.lang.query.GraqlCompute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,6 +24,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -34,17 +39,20 @@ public class Export {
         GraknClient client = new GraknClient("localhost:48555");
         GraknClient.Session session = client.session("s_acadc9f5c73741329a75e0c40b5aa9c4");
 
-        GraknClient.Transaction schemaTx = session.transaction().read();
-        Set<Label> entityTypes = schemaTx.getSchemaConcept(Label.of("entity")).subs().filter(type -> !type.asEntityType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
-        Set<Label> attributeTypes = schemaTx.getSchemaConcept(Label.of("attribute")).subs().filter(type -> !type.asAttributeType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
-        Set<Label> relationTypes = schemaTx.getSchemaConcept(Label.of("relation")).subs().filter(type -> !type.asRelationType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
-        schemaTx.close();
 
 //        Path exportRoot = Paths.get("/tmp/data_old");
         Path exportRoot = Paths.get("/Users/joshua/Documents/experimental/grakn-migrate/data");
         Files.createDirectories(exportRoot);
 
+        // export schema to files
         exportSchema(exportRoot, session);
+
+        // collect all labels
+        GraknClient.Transaction schemaTx = session.transaction().read();
+        Set<Label> entityTypes = schemaTx.getSchemaConcept(Label.of("entity")).subs().filter(type -> !type.asEntityType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
+        Set<Label> attributeTypes = schemaTx.getSchemaConcept(Label.of("attribute")).subs().filter(type -> !type.asAttributeType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
+        Set<Label> relationTypes = schemaTx.getSchemaConcept(Label.of("relation")).subs().filter(type -> !type.asRelationType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
+        schemaTx.close();
 
         for (Label entityType : entityTypes) {
             Path outputFolder = exportRoot.resolve("entity");
@@ -74,8 +82,9 @@ public class Export {
             int exportedOwnerships = writeImplicitRelations(session, attributeType, outputFolder);
             LOG.info("Exported ownerships type: " + attributeType + ", count: " + exportedOwnerships);
         }
-    }
 
+        writeChecksums(session, exportRoot);
+    }
 
 
     /**
@@ -87,16 +96,18 @@ public class Export {
             File outputFile = root.resolve(entityType.label().toString()).toFile();
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
-                int[] count = new int[] {0};
-                entityType.instances().forEach(concept -> {
-                    try {
-                        count[0]++;
-                        writer.write(concept.id().toString());
-                        writer.write("\n");
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
+                int[] count = new int[]{0};
+                entityType.instances()
+                        .filter(concept -> concept.type().label().equals(entityTypeLabel))
+                        .forEach(concept -> {
+                            try {
+                                count[0]++;
+                                writer.write(concept.id().toString());
+                                writer.write("\n");
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        });
                 return count[0];
             }
         }
@@ -116,20 +127,22 @@ public class Export {
                 // could write the attribute datatype on the first line, though we don't need this assuming the schema is already loaded
                 // writer.write(dataTypeName);
                 // writer.write("\n");
-                int[] count = new int[] {0};
-                attributeType.instances().forEach(concept -> {
-                    try {
-                        count[0]++;
-                        String id = concept.id().toString();
-                        String value = concept.value().toString();
-                        writer.write(id);
-                        writer.write(",");
-                        writer.write(value);
-                        writer.write("\n");
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
+                int[] count = new int[]{0};
+                attributeType.instances()
+                        .filter(concept -> concept.type().label().equals(attributeTypeLabel))
+                        .forEach(concept -> {
+                            try {
+                                count[0]++;
+                                String id = concept.id().toString();
+                                String value = concept.value().toString();
+                                writer.write(id);
+                                writer.write(",");
+                                writer.write(value);
+                                writer.write("\n");
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        });
                 return count[0];
             }
         }
@@ -147,28 +160,30 @@ public class Export {
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
 
-                int[] count = new int[] {0};
-                relationType.instances().forEach(concept -> {
-                    try {
-                        count[0]++;
-                        String id = concept.id().toString();
-                        writer.write(id);
-                        writer.write(",");
+                int[] count = new int[]{0};
+                relationType.instances()
+                        .filter(concept -> concept.type().label().equals(relationTypeLabel))
+                        .forEach(concept -> {
+                            try {
+                                count[0]++;
+                                String id = concept.id().toString();
+                                writer.write(id);
+                                writer.write(",");
 
-                        Map<Role, Set<Thing>> roleSetMap = concept.rolePlayersMap();
-                        for (Map.Entry<Role, Set<Thing>> roleSetEntry : roleSetMap.entrySet()) {
-                            writer.write("(");
-                            writer.write(roleSetEntry.getKey().label().toString());
-                            writer.write(",");
-                            String rolePlayers = String.join(",", roleSetEntry.getValue().stream().map(thing -> thing.id().toString()).collect(Collectors.toSet()));
-                            writer.write(rolePlayers);
-                            writer.write("),");
-                        }
-                        writer.write("\n");
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
+                                Map<Role, Set<Thing>> roleSetMap = concept.rolePlayersMap();
+                                for (Map.Entry<Role, Set<Thing>> roleSetEntry : roleSetMap.entrySet()) {
+                                    writer.write("(");
+                                    writer.write(roleSetEntry.getKey().label().toString());
+                                    writer.write(",");
+                                    String rolePlayers = String.join(",", roleSetEntry.getValue().stream().map(thing -> thing.id().toString()).collect(Collectors.toSet()));
+                                    writer.write(rolePlayers);
+                                    writer.write("),");
+                                }
+                                writer.write("\n");
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        });
                 return count[0];
             }
         }
@@ -188,23 +203,59 @@ public class Export {
 
                 // TODO work out how to also store the implicit relation ID
 
-                int[] count = new int[] {0};
-                attributeType.instances().forEach(concept -> {
-                    String id = concept.id().toString();
-                    concept.owners().forEach(ownerThing -> {
-                        try {
-                            count[0]++;
-                            writer.write(id);
-                            writer.write(",");
-                            writer.write(ownerThing.id().toString());
-                            writer.write("\n");
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    });
-                });
+                int[] count = new int[]{0};
+                attributeType.instances()
+                        .filter(concept -> concept.type().label().equals(attributeTypeLabel))
+                        .forEach(concept -> {
+                            String id = concept.id().toString();
+                            concept.owners().forEach(ownerThing -> {
+                                try {
+                                    count[0]++;
+                                    writer.write(id);
+                                    writer.write(",");
+                                    writer.write(ownerThing.id().toString());
+                                    writer.write("\n");
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            });
+                        });
                 return count[0];
             }
         }
+    }
+
+    /**
+     * Some kind of export checksums that can be compared against on import
+     * To start with, simply use a compute count of `entity`, `relation` and `attribute`
+     * and write them in this order to a file
+     */
+    private static void writeChecksums(GraknClient.Session session, Path exportRoot) throws IOException {
+
+        GraknClient.Transaction tx = session.transaction().write();
+
+        // count number of entities
+        GraqlCompute.Statistics query = Graql.compute().count().in("entity");
+        List<Numeric> execute = tx.execute(query);
+        int entities = execute.get(0).number().intValue();
+        // count number of explicit relations
+        query = Graql.compute().count().in("relation");
+        execute = tx.execute(query);
+        int explicitRelations = execute.get(0).number().intValue();
+        // count number of attributes
+        query = Graql.compute().count().in("attribute");
+        execute = tx.execute(query);
+        int attributes = execute.get(0).number().intValue();
+        tx.close();
+
+        Files.write(
+                exportRoot.resolve("checksums"),
+                Arrays.asList(
+                        Integer.toString(entities),
+                        Integer.toString(explicitRelations),
+                        Integer.toString(attributes)
+                )
+        );
+
     }
 }

@@ -7,6 +7,8 @@ import grakn.core.concept.type.EntityType;
 import grakn.core.concept.type.RelationType;
 import grakn.core.concept.type.Role;
 import grakn.core.concept.type.SchemaConcept;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,6 +17,8 @@ import java.time.LocalDateTime;
 import java.util.stream.Stream;
 
 public class Schema {
+
+    private static final Logger LOG = LoggerFactory.getLogger(Schema.class);
 
     public static void importSchema(GraknClient.Session session, Path importPathRoot) throws IOException {
         Path schemaRoot = importPathRoot.resolve("schema");

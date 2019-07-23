@@ -5,6 +5,8 @@ import grakn.core.concept.Concept;
 import grakn.core.concept.Label;
 import grakn.core.concept.type.SchemaConcept;
 import graql.lang.Graql;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -22,25 +24,9 @@ import java.util.stream.Stream;
 
 public class Schema {
 
+    private static final Logger LOG = LoggerFactory.getLogger(Schema.class);
+
     static void exportSchema(Path exportRoot, GraknClient.Session session) throws IOException {
-
-        /*
-        Exporting the schema is generally harder than exporting data due to the hierarchy of types
-
-        General method of exporting hierarchy:
-        * take each child type, and write child, parent type
-        * repeat this up to meta types (Role, Entity, Relation, Attribute)
-
-        Include with attribute the data type
-
-        Because we do it all in 1 tx, we can iteratively add things -
-
-        1. export roles (ie. hierarchy)
-        2. export attributes with data types, followed by a list of `plays` (role, role...) and `has` (attr, attr...)
-        3. export relations similarly
-        4. export entities
-        */
-
 
         Path schemaRoot = exportRoot.resolve("schema");
         Files.createDirectories(schemaRoot);
@@ -83,10 +69,11 @@ public class Schema {
             });
         });
 
-
         writer.flush();
         writer.close();
         tx.close();
+
+        LOG.info("Exported schema attribute ownerships");
     }
 
 
@@ -116,6 +103,8 @@ public class Schema {
         writer.flush();
         writer.close();
         tx.close();
+
+        LOG.info("Exported roles played");
     }
 
     /**
@@ -130,6 +119,9 @@ public class Schema {
         exportingTypes.push("role");
         exportExplicitHierarchy(exportingTypes, outputFileRole, tx, false);
         tx.close();
+
+        LOG.info("Exported role hierarchy");
+
     }
 
     /**
@@ -167,10 +159,9 @@ public class Schema {
                 });
             }
         }
-
-//         export rest of attribute hierarchy beyond the first level types
-//        exportExplicitHierarchy(exportingTypes, outputFileAttribute, tx, true);
         tx.close();
+
+        LOG.info("Exported attribute hierarchy");
     }
 
     /**
@@ -184,6 +175,8 @@ public class Schema {
         exportingTypes.push("entity");
         exportExplicitHierarchy(exportingTypes, outputFileEntity, tx, false);
         tx.close();
+
+        LOG.info("Exported entity hierarchy");
     }
 
     /**
@@ -220,6 +213,8 @@ public class Schema {
             }
         }
         tx.close();
+
+        LOG.info("Export relations hierarchy");
     }
 
     private static void exportExplicitHierarchy(Stack<String> exportingTypes, File outputFile, GraknClient.Transaction tx, boolean append) throws IOException {

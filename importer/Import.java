@@ -3,12 +3,15 @@ package migrate.importer;
 import grakn.client.GraknClient;
 import grakn.core.concept.Concept;
 import grakn.core.concept.ConceptId;
+import grakn.core.concept.answer.Numeric;
 import grakn.core.concept.thing.Attribute;
 import grakn.core.concept.thing.Relation;
 import grakn.core.concept.type.AttributeType;
 import grakn.core.concept.type.EntityType;
 import grakn.core.concept.type.RelationType;
 import grakn.core.concept.type.Role;
+import graql.lang.Graql;
+import graql.lang.query.GraqlCompute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +19,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static migrate.importer.Schema.importSchema;
@@ -34,25 +40,73 @@ public class Import {
 
     public static void main(String[] args) throws IOException {
         GraknClient client = new GraknClient("localhost:48555");
-        GraknClient.Session session = client.session("taxfix_reimport3");
+        GraknClient.Session session = client.session("taxfix_reimport_5");
 //        Path importPath = Paths.get("/tmp/data_old");
         Path importPath = Paths.get("/Users/joshua/Documents/experimental/grakn-migrate/data");
 
+        LOG.info("Importing schema...");
         importSchema(session, importPath);
+
+        List<Integer> startingCounts = computeCounts(session);
 
         Map<String, ConceptId> idRemapping = new HashMap<>();
 
+        LOG.info("\nImporting entities...");
         importEntities(session, importPath, idRemapping);
+        LOG.info("\nImporting attributes...");
         importAttributes(session, importPath, idRemapping);
+        LOG.info("\nImporting complete relations and ownerships...");
         List<IncompleteRelation> incompleteRelations = importRelations(session, importPath, idRemapping);
         List<IncompleteOwnership> incompleteOwnerships = importOwnerships(session, importPath, idRemapping);
 
+        LOG.info("\nImporting incomplete relations and ownerships...");
         handleIncomplete(session, incompleteRelations, incompleteOwnerships, idRemapping);
+
+        LOG.info("\nPerforming checks...");
+        performChecksum(session, startingCounts, importPath);
+    }
+
+    private static void performChecksum(GraknClient.Session session, List<Integer> startingCounts, Path importRoot) throws IOException {
+        List<Integer> endingCounts = computeCounts(session);
+
+        List<Integer> checksums = Files.lines(importRoot.resolve("checksums")).map(Integer::parseInt).collect(Collectors.toList());
+
+        String[] checksumDescriptions = {"entity", "relation", "attribtue"};
+
+        for (int i = 0; i < endingCounts.size(); i++) {
+            int expected = checksums.get(i);
+            int imported = endingCounts.get(i) - startingCounts.get(i);
+            if (expected != imported) {
+                LOG.error("Mismatch: expected to have imported " + expected + " " + checksumDescriptions[i] + " but imported: " + imported);
+            } else {
+                LOG.info("Sucess: expected to have imported " + expected + " " + checksumDescriptions[i] + "; successfully imported: " + imported);
+            }
+        }
+    }
+
+    private static List<Integer> computeCounts(GraknClient.Session session) {
+        GraknClient.Transaction tx = session.transaction().write();
+
+        // count number of entities
+        GraqlCompute.Statistics query = Graql.compute().count().in("entity");
+        List<Numeric> execute = tx.execute(query);
+        int entities = execute.get(0).number().intValue();
+        // count number of explicit relations
+        query = Graql.compute().count().in("relation");
+        execute = tx.execute(query);
+        int explicitRelations = execute.get(0).number().intValue();
+        // count number of attributes
+        query = Graql.compute().count().in("attribute");
+        execute = tx.execute(query);
+        int attributes = execute.get(0).number().intValue();
+        tx.close();
+
+        return Arrays.asList(entities, explicitRelations, attributes);
     }
 
     private static void handleIncomplete(GraknClient.Session session, List<IncompleteRelation> incompleteRelations, List<IncompleteOwnership> incompleteOwnerships, Map<String, ConceptId> idRemapping) {
         // use one big tx to import all the remaining relations and ownerships
-        GraknClient.Transaction tx =  session.transaction().write();
+        GraknClient.Transaction tx = session.transaction().write();
 
         // create all the relation instances first
         for (IncompleteRelation incompleteRelation : incompleteRelations) {
@@ -76,7 +130,6 @@ public class Import {
                     partialRelationInstance.assign(role, tx.getConcept(idRemapping.get(oldRolePlayerId)));
                 }
             }
-            System.out.println("Completed incomplete relation: " + partialRelationInstance.id());
         }
 
         tx.commit();
@@ -92,9 +145,6 @@ public class Import {
             tx.commit();
         }
 
-
-
-
     }
 
     private static List<IncompleteOwnership> importOwnerships(GraknClient.Session session, Path importRoot, Map<String, ConceptId> idRemapping) throws IOException {
@@ -104,8 +154,7 @@ public class Import {
 
         Files.list(ownershipRoot).filter(path -> Files.isRegularFile(path)).forEach(ownershipFile -> {
             String attributeOwnedName = ownershipFile.getFileName().toString();
-
-            System.out.println("Attribute ownership of: " + attributeOwnedName);
+            LOG.info("Import ownerships of attribute: " + attributeOwnedName);
 
             try {
                 Stream<String> lines = Files.lines(ownershipFile);
@@ -124,10 +173,8 @@ public class Import {
                         owner.asThing().has(value.asAttribute());
                         tx.commit();
 
-                        System.out.println("Import attr ownership");
                     } else {
                         incompleteOwnerships.add(new IncompleteOwnership(oldOwnerId, oldAttrId));
-                        System.out.println("Skipped incomplete Attr ownership");
                     }
 
                 });
@@ -142,6 +189,7 @@ public class Import {
     static class IncompleteOwnership {
         private String ownerId;
         private String attributeId;
+
         IncompleteOwnership(String ownerId, String attributeId) {
             this.ownerId = ownerId;
             this.attributeId = attributeId;
@@ -174,7 +222,7 @@ public class Import {
         Files.list(relationsRoot).filter(path -> Files.isRegularFile(path)).forEach(relationFile -> {
 
             String relationName = relationFile.getFileName().toString();
-            System.out.println(relationName);
+            LOG.info("Import relations of type: " + relationName);
 
             try {
                 Stream<String> lines = Files.lines(relationFile);
@@ -196,7 +244,6 @@ public class Import {
 
                     if (anyIdsNotFound.isPresent()) {
                         incompleteRelations.add(new IncompleteRelation(relationName, oldId, oldIdsPerRole));
-                        System.out.println("Skipped incomplete relation");
                     } else {
                         GraknClient.Transaction tx = session.transaction().write();
                         RelationType relationType = tx.getRelationType(relationName);
@@ -209,7 +256,6 @@ public class Import {
                             }
                         }
                         idRemapping.put(oldId, newRelation.id());
-                        System.out.println("New relation: " + newRelation.id());
                         tx.commit();
                     }
 
@@ -235,7 +281,7 @@ public class Import {
                 break;
             }
             int indexEnd = s.indexOf(")", index);
-            substrings.add(s.substring(index+1, indexEnd));
+            substrings.add(s.substring(index + 1, indexEnd));
             index = indexEnd;
         }
 
@@ -245,9 +291,9 @@ public class Import {
     static void importEntities(GraknClient.Session session, Path importRoot, Map<String, ConceptId> idRemapping) throws IOException {
         Path entitiesRoot = importRoot.resolve("entity");
 
-        Files.list(entitiesRoot).filter(path -> Files.isRegularFile(path)).forEach(entityFile-> {
+        Files.list(entitiesRoot).filter(path -> Files.isRegularFile(path)).forEach(entityFile -> {
             String entityName = entityFile.getFileName().toString();
-            System.out.println(entityName);
+            LOG.info("Importing entities of type " + entityName);
             try {
                 Stream<String> lines = Files.lines(entityFile);
 
@@ -255,7 +301,6 @@ public class Import {
                     GraknClient.Transaction tx = session.transaction().write();
                     EntityType entityType = tx.getEntityType(entityName);
                     ConceptId newId = entityType.create().id();
-                    System.out.println(id + " : " + newId);
                     idRemapping.put(id, newId);
                     tx.commit();
                 });
@@ -272,9 +317,9 @@ public class Import {
 
         Files.list(attributesRoot).filter(path -> Files.isRegularFile(path)).forEach(attributeFile -> {
             String attributeName = attributeFile.getFileName().toString();
-            System.out.println(attributeName);
             GraknClient.Transaction tx = session.transaction().write();
             AttributeType<Object> attributeType = tx.getAttributeType(attributeName);
+            LOG.info("Import attributes of type: " + attributeName);
             try {
                 Stream<String> lines = Files.lines(attributeFile);
                 lines.forEach(line -> {
@@ -293,12 +338,13 @@ public class Import {
                         attrInstance = attributeType.create(value);
                     } else if (dataClass.equals(Boolean.class)) {
                         attrInstance = attributeType.create(Boolean.parseBoolean(value));
+                    } else if (dataClass.equals(LocalDateTime.class)) {
+                        attrInstance = attributeType.create(LocalDateTime.parse(value));
                     } else {
                         throw new RuntimeException("Unhandled datatype: " + dataClass);
                     }
 
                     idRemapping.put(oldId, attrInstance.id());
-                    System.out.println(oldId + " : " + attrInstance.id() + ", " + value);
                 });
                 tx.commit();
             } catch (IOException e) {
