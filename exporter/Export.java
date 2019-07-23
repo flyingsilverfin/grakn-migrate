@@ -39,12 +39,12 @@ public class Export {
         GraknClient client = new GraknClient("localhost:48555");
         GraknClient.Session session = client.session("s_acadc9f5c73741329a75e0c40b5aa9c4");
 
-
 //        Path exportRoot = Paths.get("/tmp/data_old");
         Path exportRoot = Paths.get("/Users/joshua/Documents/experimental/grakn-migrate/data");
         Files.createDirectories(exportRoot);
 
         // export schema to files
+        LOG.info("Exporting schema...");
         exportSchema(exportRoot, session);
 
         // collect all labels
@@ -76,13 +76,13 @@ public class Export {
         }
 
         for (Label attributeType : attributeTypes) {
-            LOG.info("Export ownerships for attribute type: " + attributeType);
             Path outputFolder = exportRoot.resolve("ownership");
             Files.createDirectories(outputFolder);
             int exportedOwnerships = writeImplicitRelations(session, attributeType, outputFolder);
             LOG.info("Exported ownerships type: " + attributeType + ", count: " + exportedOwnerships);
         }
 
+        LOG.info("Writing checksums...");
         writeChecksums(session, exportRoot);
     }
 

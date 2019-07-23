@@ -17,9 +17,9 @@ java_library(
 java_binary(
     name = "grakn-export-binary",
     runtime_deps = [
-        "//export:grakn-export"
+        "//exporter:grakn-export"
     ],
-    main_class = "migrate.export.Export",
+    main_class = "migrate.exporter.Export",
     visibility = ["//visibility:public"],
     classpath_resources = [":logback"],
 )

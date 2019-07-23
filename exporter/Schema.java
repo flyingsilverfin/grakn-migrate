@@ -5,6 +5,7 @@ import grakn.core.concept.Concept;
 import grakn.core.concept.Label;
 import grakn.core.concept.type.SchemaConcept;
 import graql.lang.Graql;
+import graql.lang.pattern.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +43,44 @@ public class Schema {
 
         // export role playing
         exportRolesPlayed(session, schemaRoot);
+
+        // export rules
+        exportRules(session, schemaRoot);
+    }
+
+    /**
+     * Write rules to file, each split across lines
+     * rule 1 name,
+     * rule 1 when,
+     * rule 1 then
+     * ...
+     */
+    private static void exportRules(GraknClient.Session session, Path schemaRoot) throws IOException {
+        File outputFile = schemaRoot.resolve("rule").toFile();
+        Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8));
+        GraknClient.Transaction tx = session.transaction().write();
+
+        tx.getRule("rule").subs()
+                .filter(rule -> !rule.label().toString().equals("rule"))
+                .forEach(rule -> {
+                    String when = rule.when().toString();
+                    String then = rule.then().toString();
+                    String label = rule.label().toString();
+                    try {
+                        writer.write(label);
+                        writer.write("\n");
+                        writer.write(when);
+                        writer.write("\n");
+                        writer.write(then);
+                        writer.write("\n");
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+
+        writer.flush();
+        writer.close();
+        tx.close();
     }
 
     /**

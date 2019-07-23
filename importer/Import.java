@@ -79,7 +79,7 @@ public class Import {
             if (expected != imported) {
                 LOG.error("Mismatch: expected to have imported " + expected + " " + checksumDescriptions[i] + " but imported: " + imported);
             } else {
-                LOG.info("Sucess: expected to have imported " + expected + " " + checksumDescriptions[i] + "; successfully imported: " + imported);
+                LOG.info("Success: expected to have imported " + expected + " " + checksumDescriptions[i] + "; successfully imported: " + imported);
             }
         }
     }

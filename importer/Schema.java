@@ -1,5 +1,6 @@
 package migrate.importer;
 
+import com.sun.corba.se.spi.legacy.interceptor.IORInfoExt;
 import grakn.client.GraknClient;
 import grakn.core.concept.Label;
 import grakn.core.concept.type.AttributeType;
@@ -7,13 +8,16 @@ import grakn.core.concept.type.EntityType;
 import grakn.core.concept.type.RelationType;
 import grakn.core.concept.type.Role;
 import grakn.core.concept.type.SchemaConcept;
+import graql.lang.Graql;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.print.DocFlavor;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.Iterator;
 import java.util.stream.Stream;
 
 public class Schema {
@@ -37,6 +41,26 @@ public class Schema {
 
         // import roles played
         importRolePlayers(session, schemaRoot);
+
+        // import rules
+        importRules(session, schemaRoot);
+    }
+
+    private static void importRules(GraknClient.Session session, Path schemaRoot) throws IOException {
+        Path rules = schemaRoot.resolve("rule");
+        Stream<String> lines = Files.lines(rules);
+        GraknClient.Transaction tx = session.transaction().write();
+
+        Iterator<String> linesIterator = lines.iterator();
+        while (linesIterator.hasNext()) {
+            String ruleName = linesIterator.next();
+            String ruleWhen = linesIterator.next();
+            String ruleThen = linesIterator.next();
+
+            tx.putRule(ruleName, Graql.parsePattern(ruleWhen), Graql.parsePattern(ruleThen));
+        }
+
+        tx.commit();
     }
 
     private static void importRolePlayers(GraknClient.Session session, Path schemaRoot) throws IOException {

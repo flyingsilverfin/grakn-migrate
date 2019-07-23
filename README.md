@@ -5,7 +5,7 @@ but can be very useful for getting some data sets across Grakn versions.
 Key shortfalls:
 * Cannot handle any schemas or data with `key`
 * Cannot handle data attached to implicit relations
-* Does not handle rules (yet)
+* Cannot Graql syntax mismatches between versions (rules are parsed via Graql)
 * Probably cannot handle very large circular dependencies in the data (all circular relations are inserted in 1 transaction)
   * this occurs when relations are role players in other relations
 
