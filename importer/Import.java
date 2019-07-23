@@ -40,7 +40,7 @@ public class Import {
 
     public static void main(String[] args) throws IOException {
         GraknClient client = new GraknClient("localhost:48555");
-        GraknClient.Session session = client.session("taxfix_reimport_5");
+        GraknClient.Session session = client.session("taxfix_reimport");
 //        Path importPath = Paths.get("/tmp/data_old");
         Path importPath = Paths.get("/Users/joshua/Documents/experimental/grakn-migrate/data");
 
@@ -71,7 +71,7 @@ public class Import {
 
         List<Integer> checksums = Files.lines(importRoot.resolve("checksums")).map(Integer::parseInt).collect(Collectors.toList());
 
-        String[] checksumDescriptions = {"entity", "relation", "attribtue"};
+        String[] checksumDescriptions = {"entity", "relation", "attribute"};
 
         for (int i = 0; i < endingCounts.size(); i++) {
             int expected = checksums.get(i);

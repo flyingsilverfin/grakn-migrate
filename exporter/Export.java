@@ -1,4 +1,4 @@
-package migrate.export;
+package migrate.exporter;
 
 import grakn.client.GraknClient;
 import grakn.core.concept.Label;
@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static migrate.export.Schema.exportSchema;
+import static migrate.exporter.Schema.exportSchema;
 
 public class Export {
     private static final Logger LOG = LoggerFactory.getLogger(Export.class);
@@ -119,7 +119,6 @@ public class Export {
     private static int writeAttributes(GraknClient.Session session, Label attributeTypeLabel, Path root) throws IOException {
         try (GraknClient.Transaction tx = session.transaction().read()) {
             AttributeType<? extends Object> attributeType = tx.getAttributeType(attributeTypeLabel.toString());
-//            String dataTypeName = attributeType.dataType().name();
 
             File outputFile = root.resolve(attributeType.label().toString()).toFile();
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
@@ -162,7 +161,7 @@ public class Export {
 
                 int[] count = new int[]{0};
                 relationType.instances()
-                        .filter(concept -> concept.type().label().equals(relationTypeLabel))
+                        .filter(concept -> concept.type().label().equals(relationTypeLabel)) // filter out subtypes
                         .forEach(concept -> {
                             try {
                                 count[0]++;
@@ -205,7 +204,7 @@ public class Export {
 
                 int[] count = new int[]{0};
                 attributeType.instances()
-                        .filter(concept -> concept.type().label().equals(attributeTypeLabel))
+                        .filter(concept -> concept.type().label().equals(attributeTypeLabel)) // filter out subtypes
                         .forEach(concept -> {
                             String id = concept.id().toString();
                             concept.owners().forEach(ownerThing -> {

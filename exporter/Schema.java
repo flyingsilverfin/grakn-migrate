@@ -1,4 +1,4 @@
-package migrate.export;
+package migrate.exporter;
 
 import grakn.client.GraknClient;
 import grakn.core.concept.Concept;

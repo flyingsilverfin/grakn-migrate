@@ -8,7 +8,7 @@
 
     <root level="INFO"/>
 
-    <logger name="migrate.export" level="INFO">
+    <logger name="migrate.exporter" level="INFO">
         <appender-ref ref="STDOUT"/>
     </logger>
 </configuration>
