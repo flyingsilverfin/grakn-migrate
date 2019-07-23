@@ -9,6 +9,9 @@ Key shortfalls:
 * Probably cannot handle very large circular dependencies in the data (all circular relations are inserted in 1 transaction)
   * this occurs when relations are role players in other relations
 
+Since it all runs in a single thread for now, it is also not expected
+to be very performant when exporting and importing large amount of data.
+
 ## Export
 
 ```bazel run //exporter:grakn-export -- [output directory] [Grakn URI:port] [keyspace to export]```

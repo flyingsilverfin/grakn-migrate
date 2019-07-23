@@ -40,7 +40,9 @@ public class Import {
 
     public static void main(String[] args) throws IOException {
         GraknClient client = new GraknClient("localhost:48555");
-        GraknClient.Session session = client.session("taxfix_reimport");
+
+        String targetKeyspace = "taxfix_reimport";
+        GraknClient.Session session = client.session(targetKeyspace);
 //        Path importPath = Paths.get("/tmp/data_old");
         Path importPath = Paths.get("/Users/joshua/Documents/experimental/grakn-migrate/data");
 
@@ -64,6 +66,8 @@ public class Import {
 
         LOG.info("\nPerforming checks...");
         performChecksum(session, startingCounts, importPath);
+
+        LOG.info("Completed import into keyspace: " + targetKeyspace);
     }
 
     private static void performChecksum(GraknClient.Session session, List<Integer> startingCounts, Path importRoot) throws IOException {
