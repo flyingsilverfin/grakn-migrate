@@ -1,6 +1,5 @@
 package migrate.importer;
 
-import com.sun.corba.se.spi.legacy.interceptor.IORInfoExt;
 import grakn.client.GraknClient;
 import grakn.core.concept.Label;
 import grakn.core.concept.type.AttributeType;
@@ -12,7 +11,6 @@ import graql.lang.Graql;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.print.DocFlavor;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

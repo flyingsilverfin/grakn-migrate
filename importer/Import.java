@@ -39,12 +39,20 @@ public class Import {
     private static final Logger LOG = LoggerFactory.getLogger(Import.class);
 
     public static void main(String[] args) throws IOException {
-        GraknClient client = new GraknClient("localhost:48555");
 
-        String targetKeyspace = "taxfix_reimport";
+        if (args.length != 3) {
+            System.out.println("Error - correct arguments: [export data directory] [grakn URI] [target keyspace]");
+            System.exit(1);
+        }
+
+        String destination = args[0];
+        String graknUri = args[1];
+        String targetKeyspace = args[2];
+
+        GraknClient client = new GraknClient(graknUri);
+        Path importPath = Paths.get(destination);
+
         GraknClient.Session session = client.session(targetKeyspace);
-//        Path importPath = Paths.get("/tmp/data_old");
-        Path importPath = Paths.get("/Users/joshua/Documents/experimental/grakn-migrate/data");
 
         LOG.info("Importing schema...");
         importSchema(session, importPath);

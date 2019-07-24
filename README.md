@@ -14,10 +14,10 @@ to be very performant when exporting and importing large amount of data.
 
 ## Export
 
-```bazel run //exporter:grakn-export -- [output directory] [Grakn URI:port] [keyspace to export]```
+```bazel run //exporter:grakn-export -- [parent output directory] [Grakn URI:port] [keyspace to export]```
 
-This will produce a set of directories and files in the given location.
-High level, this is structured as follows:
+This will produce a directory `data` within the parent output directory.
+The inner structure of `data` is as follows:
 
 * `schema` - export schema as a set of files for hierarchies of entites, relations, attributes, roles, plus a list of roles played and attribute owned
 * `entity`, `relation`, `attribute` - IDs from the previous DB on instances and relations between them
@@ -25,7 +25,7 @@ High level, this is structured as follows:
 
 
 ## Import
-```bazel run //importer:grakn-import -- [output directory] [Grakn URI:port] [target keyspace]```
+```bazel run //importer:grakn-import -- [outputted directory] [Grakn URI:port] [target keyspace]```
 
 
 This will consume the set of directories produced by the `export` and 
