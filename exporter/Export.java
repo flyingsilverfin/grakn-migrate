@@ -57,54 +57,39 @@ public class Export {
         LOG.info("Exporting schema...");
         exportSchema(exportRoot, session);
 
-        // collect all labels
-        GraknClient.Transaction schemaTx = session.transaction().read();
-        Set<Label> entityTypes = schemaTx.getSchemaConcept(Label.of("entity")).subs().filter(type -> !type.asEntityType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
-        Set<Label> attributeTypes = schemaTx.getSchemaConcept(Label.of("attribute")).subs().filter(type -> !type.asAttributeType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
-        Set<Label> explicitRelationTypes = schemaTx.getSchemaConcept(Label.of("relation")).subs()
-                .filter(type -> !type.asRelationType().isAbstract())
-                .filter(type -> !type.isImplicit())
-                .map(SchemaConcept::label)
-                .collect(Collectors.toSet());
-        schemaTx.close();
-
-        Path outputFolder = exportRoot.resolve("entity");
-        Files.createDirectories(outputFolder);
-        for (Label entityType : entityTypes) {
-            int exportedEntities = writeEntities(session, entityType, outputFolder);
-            LOG.info("Exported entity type: " + entityType + ", count: " + exportedEntities);
-        }
-
-        outputFolder = exportRoot.resolve("attribute");
-        Files.createDirectories(outputFolder);
-        for (Label attributeType : attributeTypes) {
-            int insertedAttributes = writeAttributes(session, attributeType, outputFolder);
-            LOG.info("Exported attribute type: " + attributeType + ", count: " + insertedAttributes);
-        }
-
-        outputFolder = exportRoot.resolve("relation");
-        Files.createDirectories(outputFolder);
-        for (Label explicitRelationType : explicitRelationTypes) {
-            int exportedRelations = writeExplicitRelations(session, explicitRelationType, outputFolder);
-            LOG.info("Exported relation type: " + explicitRelationType + ", count: " + exportedRelations);
-        }
-
-        outputFolder = exportRoot.resolve("ownership");
-        Files.createDirectories(outputFolder);
-        for (Label attributeType : attributeTypes) {
-            int exportedOwnerships = writeImplicitRelations(session, attributeType, outputFolder);
-            LOG.info("Exported ownerships type: " + attributeType + ", count: " + exportedOwnerships);
-        }
+        // export data
+        writeEntities(session, exportRoot);
+        writeAttributes(session, exportRoot);
+        writeExplicitRelations(session, exportRoot);
+        writeOwnerships(session, exportRoot);
 
         LOG.info("Writing checksums...");
         writeChecksums(session, exportRoot);
     }
 
 
+
+    private static void writeEntities(GraknClient.Session session, Path root) throws IOException {
+        GraknClient.Transaction tx = session.transaction().write();
+        Set<Label> entityTypes = tx.getSchemaConcept(Label.of("entity")).subs().
+                filter(type -> !type.asEntityType().isAbstract()).
+                map(SchemaConcept::label).
+                collect(Collectors.toSet());
+        tx.close();
+
+        Path outputFolder = root.resolve("entity");
+        Files.createDirectories(outputFolder);
+        for (Label entityType : entityTypes) {
+            int exportedEntities = writeEntityType(session, entityType, outputFolder);
+            LOG.info("Exported entity type: " + entityType + ", count: " + exportedEntities);
+        }
+    }
+
+
     /**
      * Write one entity concept ID per line
      */
-    private static int writeEntities(GraknClient.Session session, Label entityTypeLabel, Path root) throws IOException {
+    private static int writeEntityType(GraknClient.Session session, Label entityTypeLabel, Path root) throws IOException {
         try (GraknClient.Transaction tx = session.transaction().read()) {
             EntityType entityType = tx.getEntityType(entityTypeLabel.toString());
             File outputFile = root.resolve(entityType.label().toString()).toFile();
@@ -127,10 +112,26 @@ public class Export {
         }
     }
 
+    private static void writeAttributes(GraknClient.Session session, Path root) throws IOException {
+        GraknClient.Transaction tx = session.transaction().write();
+        Set<Label> attributeTypes = tx.getSchemaConcept(Label.of("attribute")).subs().
+                filter(type -> !type.asEntityType().isAbstract()).
+                map(SchemaConcept::label).
+                collect(Collectors.toSet());
+        tx.close();
+
+        Path outputFolder = root.resolve("attribute");
+        Files.createDirectories(outputFolder);
+        for (Label attributeType : attributeTypes) {
+            int insertedAttributes = writeAttributeType(session, attributeType, outputFolder);
+            LOG.info("Exported attribute type: " + attributeType + ", count: " + insertedAttributes);
+        }
+    }
+
     /**
      * Write one attribute ID, attribute value per line
      */
-    private static int writeAttributes(GraknClient.Session session, Label attributeTypeLabel, Path root) throws IOException {
+    private static int writeAttributeType(GraknClient.Session session, Label attributeTypeLabel, Path root) throws IOException {
         try (GraknClient.Transaction tx = session.transaction().read()) {
             AttributeType<? extends Object> attributeType = tx.getAttributeType(attributeTypeLabel.toString());
 
@@ -161,11 +162,28 @@ public class Export {
         }
     }
 
+
+    private static void writeExplicitRelations(GraknClient.Session session, Path root) throws IOException {
+        GraknClient.Transaction tx = session.transaction().write();
+        Set<Label> explicitRelationTypes = tx.getSchemaConcept(Label.of("relation")).subs()
+                .filter(type -> !type.asRelationType().isAbstract())
+                .filter(type -> !type.isImplicit())
+                .map(SchemaConcept::label)
+                .collect(Collectors.toSet());
+        tx.close();
+
+        Path outputFolder = root.resolve("relation");
+        Files.createDirectories(outputFolder);
+        for (Label explicitRelationType : explicitRelationTypes) {
+            int exportedRelations = writeExplicitRelationType(session, explicitRelationType, outputFolder);
+            LOG.info("Exported relation type: " + explicitRelationType + ", count: " + exportedRelations);
+        }
+    }
     /**
      * on each line:
      * relation ID, (role #1 name, role player ID, role player ID...), (role #2 name, role player ID...), (role #3 name, RP ID...)...
      */
-    private static int writeExplicitRelations(GraknClient.Session session, Label relationTypeLabel, Path root) throws IOException {
+    private static int writeExplicitRelationType(GraknClient.Session session, Label relationTypeLabel, Path root) throws IOException {
         try (GraknClient.Transaction tx = session.transaction().read()) {
             RelationType relationType = tx.getRelationType(relationTypeLabel.toString());
             File outputFile = root.resolve(relationType.label().toString()).toFile();
@@ -202,11 +220,27 @@ public class Export {
         }
     }
 
+    private static void writeOwnerships(GraknClient.Session session, Path root) throws IOException {
+        GraknClient.Transaction tx = session.transaction().write();
+        Set<Label> attributeTypes = tx.getSchemaConcept(Label.of("attribute")).subs().
+                filter(type -> !type.asEntityType().isAbstract()).
+                map(SchemaConcept::label).
+                collect(Collectors.toSet());
+        tx.close();
+
+        Path outputFolder = root.resolve("ownership");
+        Files.createDirectories(outputFolder);
+        for (Label attributeType : attributeTypes) {
+            int exportedOwnerships = writeImplicitRelationType(session, attributeType, outputFolder);
+            LOG.info("Exported ownerships type: " + attributeType + ", count: " + exportedOwnerships);
+        }
+    }
+
     /**
      * on each line:
      * attribute ID, owner ID
      */
-    private static int writeImplicitRelations(GraknClient.Session session, Label attributeTypeLabel, Path root) throws IOException {
+    private static int writeImplicitRelationType(GraknClient.Session session, Label attributeTypeLabel, Path root) throws IOException {
         try (GraknClient.Transaction tx = session.transaction().read()) {
             AttributeType<? extends Object> attributeType = tx.getAttributeType(attributeTypeLabel.toString());
 
