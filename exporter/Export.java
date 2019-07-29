@@ -61,8 +61,11 @@ public class Export {
         GraknClient.Transaction schemaTx = session.transaction().read();
         Set<Label> entityTypes = schemaTx.getSchemaConcept(Label.of("entity")).subs().filter(type -> !type.asEntityType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
         Set<Label> attributeTypes = schemaTx.getSchemaConcept(Label.of("attribute")).subs().filter(type -> !type.asAttributeType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
-        // TODO filter to expliclicit relations here so don't need to do filter with "@" below
-        Set<Label> relationTypes = schemaTx.getSchemaConcept(Label.of("relation")).subs().filter(type -> !type.asRelationType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
+        Set<Label> explicitRelationTypes = schemaTx.getSchemaConcept(Label.of("relation")).subs()
+                .filter(type -> !type.asRelationType().isAbstract())
+                .filter(type -> !type.isImplicit())
+                .map(SchemaConcept::label)
+                .collect(Collectors.toSet());
         schemaTx.close();
 
         Path outputFolder = exportRoot.resolve("entity");
@@ -81,7 +84,7 @@ public class Export {
 
         outputFolder = exportRoot.resolve("relation");
         Files.createDirectories(outputFolder);
-        for (Label explicitRelationType : relationTypes.stream().filter(label -> !label.toString().startsWith("@")).collect(Collectors.toSet())) {
+        for (Label explicitRelationType : explicitRelationTypes) {
             int exportedRelations = writeExplicitRelations(session, explicitRelationType, outputFolder);
             LOG.info("Exported relation type: " + explicitRelationType + ", count: " + exportedRelations);
         }

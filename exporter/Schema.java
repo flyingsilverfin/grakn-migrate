@@ -5,7 +5,6 @@ import grakn.core.concept.Concept;
 import grakn.core.concept.Label;
 import grakn.core.concept.type.SchemaConcept;
 import graql.lang.Graql;
-import graql.lang.pattern.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,26 +31,23 @@ public class Schema {
         Path schemaRoot = exportRoot.resolve("schema");
         Files.createDirectories(schemaRoot);
 
-        // export explicit hierarchies
+        // export explicit hierarchies of types
         exportRoles(session, schemaRoot);
         exportAttributes(session, schemaRoot);
         exportEntities(session, schemaRoot);
         exportRelations(session, schemaRoot);
 
-        // export attribute ownership
+        // export relations between types
         exportOwnership(session, schemaRoot);
-
-        // export role playing
         exportRolesPlayed(session, schemaRoot);
 
-        // export rules
         exportRules(session, schemaRoot);
     }
 
     /**
      * Write rules to file, each split across lines
-     * rule 1 name,
-     * rule 1 when,
+     * rule 1 name
+     * rule 1 when
      * rule 1 then
      * ...
      */
@@ -278,6 +274,13 @@ public class Schema {
         }
     }
 
+    /**
+     * Since direct sub (`sub!`) is not in the concept API yet, do a graql query and filter out
+     * the type itself, and implicit types
+     * @param tx
+     * @param schemaType
+     * @return stream of direct sub concepts that aren't implicit types
+     */
     private static Stream<Concept> filteredDirectSub(GraknClient.Transaction tx, String schemaType) {
         return tx.stream(
                 Graql.match(

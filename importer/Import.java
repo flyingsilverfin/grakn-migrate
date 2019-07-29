@@ -78,6 +78,12 @@ public class Import {
         LOG.info("Completed import into keyspace: " + targetKeyspace);
     }
 
+    /**
+     * @param session - Grakn session to import keyspace
+     * @param startingCounts - entity/explicit relation/attribute counts before import began
+     * @param importRoot - path to obtain checksum data file from
+     * @throws IOException
+     */
     private static void performChecksum(GraknClient.Session session, List<Integer> startingCounts, Path importRoot) throws IOException {
         List<Integer> endingCounts = computeCounts(session);
 
@@ -116,6 +122,13 @@ public class Import {
         return Arrays.asList(entities, explicitRelations, attributes);
     }
 
+    /**
+     *
+     * @param session - Session to import keyspace
+     * @param incompleteRelations - relations that were not imported due to cyclical dependencies
+     * @param incompleteOwnerships - ownerships that were not imported due to cyclical dependencies
+     * @param idRemapping - mapping from old concept IDs to new concept IDs
+     */
     private static void handleIncomplete(GraknClient.Session session, List<IncompleteRelation> incompleteRelations, List<IncompleteOwnership> incompleteOwnerships, Map<String, ConceptId> idRemapping) {
         // use one big tx to import all the remaining relations and ownerships
         GraknClient.Transaction tx = session.transaction().write();
@@ -159,6 +172,15 @@ public class Import {
 
     }
 
+    /**
+     * Import the ownerships of each attribute
+     *
+     * @param session - Session to import keyspace
+     * @param importRoot - path to data files
+     * @param idRemapping
+     * @return - incomplete ownerships of attributes (ownerships for which the owner did not exist yet)
+     * @throws IOException
+     */
     private static List<IncompleteOwnership> importOwnerships(GraknClient.Session session, Path importRoot, Map<String, ConceptId> idRemapping) throws IOException {
         List<IncompleteOwnership> incompleteOwnerships = new ArrayList<>();
 
@@ -184,7 +206,6 @@ public class Import {
                         Concept value = tx.getConcept(newAttrId);
                         owner.asThing().has(value.asAttribute());
                         tx.commit();
-
                     } else {
                         incompleteOwnerships.add(new IncompleteOwnership(oldOwnerId, oldAttrId));
                     }
@@ -197,6 +218,9 @@ public class Import {
         return incompleteOwnerships;
     }
 
+    /**
+     * Data container class for storing ownerships that were not able to be imported due to a missing owner
+     */
     static class IncompleteOwnership {
         private String ownerId;
         private String attributeId;
@@ -207,6 +231,10 @@ public class Import {
         }
     }
 
+    /**
+     * Data container class for storing relations in which some role players did not exist yet, indicating
+     * that a circular dependency existed (or a relation that was not inserted yet is a role player)
+     */
     static class IncompleteRelation {
         private String relationType;
         private String oldId;
@@ -225,11 +253,12 @@ public class Import {
     }
 
     /**
+     * Import explicit relations with the given role types and role player IDs
      *
      * @param session
      * @param importRoot
      * @param idRemapping
-     * @return
+     * @return - incomplete relations that could not be inserted yet due to some required role players not existing yet
      * @throws IOException
      */
     private static List<IncompleteRelation> importRelations(GraknClient.Session session, Path importRoot, Map<String, ConceptId> idRemapping) throws IOException {
@@ -246,9 +275,12 @@ public class Import {
             try {
                 Stream<String> lines = Files.lines(relationFile);
                 lines.forEach(line -> {
+
+                    // chunk the line into `old id`, `roleName, rolePlayerId1, playerId2...`, `roleName, ...`, ...
                     List<String> substrings = parseRelationSubstrings(line);
                     String oldId = substrings.get(0);
 
+                    // parse the IDs playing each role into a map
                     Map<String, Set<String>> oldIdsPerRole = new HashMap<>();
                     for (String roleStrings : substrings.subList(1, substrings.size())) {
                         String[] roleAndIds = roleStrings.split(",");
@@ -259,11 +291,16 @@ public class Import {
                         }
                     }
 
-                    Optional<String> anyIdsNotFound = oldIdsPerRole.values().stream().flatMap(Collection::stream).filter(oldRolePlayerId -> !idRemapping.containsKey(oldRolePlayerId)).findAny();
+                    // check if any of the role players are missing in the ID remapping. If so, we cannot insert this relation yet
+                    Optional<String> anyRolePlayersMissing = oldIdsPerRole.values().stream().
+                            flatMap(Collection::stream).
+                            filter(oldRolePlayerId -> !idRemapping.containsKey(oldRolePlayerId)).
+                            findAny();
 
-                    if (anyIdsNotFound.isPresent()) {
+                    if (anyRolePlayersMissing.isPresent()) {
                         incompleteRelations.add(new IncompleteRelation(relationName, oldId, oldIdsPerRole));
                     } else {
+                        // insert the complete relation with all its role players
                         GraknClient.Transaction tx = session.transaction().write();
                         RelationType relationType = tx.getRelationType(relationName);
                         Relation newRelation = relationType.create();
