@@ -3,6 +3,9 @@ package migrate.exporter;
 import grakn.client.GraknClient;
 import grakn.core.concept.Label;
 import grakn.core.concept.answer.Numeric;
+import grakn.core.concept.thing.Attribute;
+import grakn.core.concept.thing.Entity;
+import grakn.core.concept.thing.Relation;
 import grakn.core.concept.thing.Thing;
 import grakn.core.concept.type.AttributeType;
 import grakn.core.concept.type.EntityType;
@@ -68,7 +71,6 @@ public class Export {
     }
 
 
-
     private static void writeEntities(GraknClient.Session session, Path root) throws IOException {
         GraknClient.Transaction tx = session.transaction().write();
         Set<Label> entityTypes = tx.getSchemaConcept(Label.of("entity")).subs().
@@ -85,7 +87,6 @@ public class Export {
         }
     }
 
-
     /**
      * Write one entity concept ID per line
      */
@@ -95,19 +96,17 @@ public class Export {
             File outputFile = root.resolve(entityType.label().toString()).toFile();
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
-                int[] count = new int[]{0};
-                entityType.instances()
+
+                List<Entity> entities = entityType.instances()
                         .filter(concept -> concept.type().label().equals(entityTypeLabel))
-                        .forEach(concept -> {
-                            try {
-                                count[0]++;
-                                writer.write(concept.id().toString());
-                                writer.write("\n");
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        });
-                return count[0];
+                        .collect(Collectors.toList());
+
+                for (Entity entity : entities) {
+                    writer.write(entity.id().toString());
+                    writer.write("\n");
+                }
+
+                return entities.size();
             }
         }
     }
@@ -138,26 +137,21 @@ public class Export {
             File outputFile = root.resolve(attributeType.label().toString()).toFile();
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
-                // could write the attribute datatype on the first line, though we don't need this assuming the schema is already loaded
-                // writer.write(dataTypeName);
-                // writer.write("\n");
-                int[] count = new int[]{0};
-                attributeType.instances()
-                        .filter(concept -> concept.type().label().equals(attributeTypeLabel))
-                        .forEach(concept -> {
-                            try {
-                                count[0]++;
-                                String id = concept.id().toString();
-                                String value = concept.value().toString();
-                                writer.write(id);
-                                writer.write(",");
-                                writer.write(value);
-                                writer.write("\n");
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        });
-                return count[0];
+
+                List<Attribute<? extends Object>> attributes = attributeType.instances().
+                        filter(concept -> concept.type().label().equals(attributeTypeLabel)).
+                        collect(Collectors.toList());
+
+                for (Attribute<? extends Object> attribute : attributes) {
+                    String id = attribute.id().toString();
+                    String value = attribute.value().toString();
+                    writer.write(id);
+                    writer.write(",");
+                    writer.write(value);
+                    writer.write("\n");
+                }
+
+                return attributes.size();
             }
         }
     }
@@ -179,6 +173,7 @@ public class Export {
             LOG.info("Exported relation type: " + explicitRelationType + ", count: " + exportedRelations);
         }
     }
+
     /**
      * on each line:
      * relation ID, (role #1 name, role player ID, role player ID...), (role #2 name, role player ID...), (role #3 name, RP ID...)...
@@ -191,31 +186,27 @@ public class Export {
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
 
-                int[] count = new int[]{0};
-                relationType.instances()
+                List<Relation> relations = relationType.instances()
                         .filter(concept -> concept.type().label().equals(relationTypeLabel)) // filter out subtypes
-                        .forEach(concept -> {
-                            try {
-                                count[0]++;
-                                String id = concept.id().toString();
-                                writer.write(id);
-                                writer.write(",");
+                        .collect(Collectors.toList());
 
-                                Map<Role, Set<Thing>> roleSetMap = concept.rolePlayersMap();
-                                for (Map.Entry<Role, Set<Thing>> roleSetEntry : roleSetMap.entrySet()) {
-                                    writer.write("(");
-                                    writer.write(roleSetEntry.getKey().label().toString());
-                                    writer.write(",");
-                                    String rolePlayers = String.join(",", roleSetEntry.getValue().stream().map(thing -> thing.id().toString()).collect(Collectors.toSet()));
-                                    writer.write(rolePlayers);
-                                    writer.write("),");
-                                }
-                                writer.write("\n");
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        });
-                return count[0];
+                for (Relation relation : relations) {
+                    String id = relation.id().toString();
+                    writer.write(id);
+                    writer.write(",");
+
+                    Map<Role, Set<Thing>> roleSetMap = relation.rolePlayersMap();
+                    for (Map.Entry<Role, Set<Thing>> roleSetEntry : roleSetMap.entrySet()) {
+                        writer.write("(");
+                        writer.write(roleSetEntry.getKey().label().toString());
+                        writer.write(",");
+                        String rolePlayers = String.join(",", roleSetEntry.getValue().stream().map(thing -> thing.id().toString()).collect(Collectors.toSet()));
+                        writer.write(rolePlayers);
+                        writer.write("),");
+                    }
+                }
+
+                return relations.size();
             }
         }
     }
@@ -248,26 +239,24 @@ public class Export {
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
 
-                // TODO work out how to also store the implicit relation ID
+                // TODO work out how to also store the implicit relation ID so we can handle concepts attached to implicit relations
 
-                int[] count = new int[]{0};
-                attributeType.instances()
-                        .filter(concept -> concept.type().label().equals(attributeTypeLabel)) // filter out subtypes
-                        .forEach(concept -> {
-                            String id = concept.id().toString();
-                            concept.owners().forEach(ownerThing -> {
-                                try {
-                                    count[0]++;
-                                    writer.write(id);
-                                    writer.write(",");
-                                    writer.write(ownerThing.id().toString());
-                                    writer.write("\n");
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                            });
-                        });
-                return count[0];
+                List<Attribute<? extends Object>> attributes = attributeType.instances().
+                        filter(concept -> concept.type().label().equals(attributeTypeLabel)).
+                        collect(Collectors.toList());
+
+
+                for (Attribute<? extends Object> attribute: attributes) {
+                    String id = attribute.id().toString();
+                    List<Thing> attributeOwners = attribute.owners().collect(Collectors.toList());
+                    for (Thing owner : attributeOwners) {
+                        writer.write(id);
+                        writer.write(",");
+                        writer.write(owner.id().toString());
+                        writer.write("\n");
+                    }
+                }
+                return attributes.size();
             }
         }
     }
