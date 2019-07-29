@@ -41,16 +41,16 @@ public class Import {
     public static void main(String[] args) throws IOException {
 
         if (args.length != 3) {
-            System.out.println("Error - correct arguments: [export data directory] [grakn URI] [target keyspace]");
+            System.out.println("Error - correct arguments: [absolute data directory] [grakn URI] [target keyspace]");
             System.exit(1);
         }
 
-        String destination = args[0];
+        String importDirectory = args[0];
         String graknUri = args[1];
         String targetKeyspace = args[2];
 
         GraknClient client = new GraknClient(graknUri);
-        Path importPath = Paths.get(destination);
+        Path importPath = Paths.get(importDirectory);
 
         GraknClient.Session session = client.session(targetKeyspace);
 
@@ -197,7 +197,6 @@ public class Import {
         return incompleteOwnerships;
     }
 
-
     static class IncompleteOwnership {
         private String ownerId;
         private String attributeId;
@@ -225,6 +224,14 @@ public class Import {
         }
     }
 
+    /**
+     *
+     * @param session
+     * @param importRoot
+     * @param idRemapping
+     * @return
+     * @throws IOException
+     */
     private static List<IncompleteRelation> importRelations(GraknClient.Session session, Path importRoot, Map<String, ConceptId> idRemapping) throws IOException {
 
         List<IncompleteRelation> incompleteRelations = new ArrayList<>();
@@ -300,7 +307,7 @@ public class Import {
         return substrings;
     }
 
-    static void importEntities(GraknClient.Session session, Path importRoot, Map<String, ConceptId> idRemapping) throws IOException {
+    private static void importEntities(GraknClient.Session session, Path importRoot, Map<String, ConceptId> idRemapping) throws IOException {
         Path entitiesRoot = importRoot.resolve("entity");
 
         Files.list(entitiesRoot).filter(path -> Files.isRegularFile(path)).forEach(entityFile -> {
@@ -322,7 +329,7 @@ public class Import {
         });
     }
 
-    static void importAttributes(GraknClient.Session session, Path importRoot, Map<String, ConceptId> idRemapping) throws IOException {
+    private static void importAttributes(GraknClient.Session session, Path importRoot, Map<String, ConceptId> idRemapping) throws IOException {
         // probably have to import 1 attr per tx to enforce IDs are valid and not deduplicated
 
         Path attributesRoot = importRoot.resolve("attribute");
@@ -335,6 +342,7 @@ public class Import {
             try {
                 Stream<String> lines = Files.lines(attributeFile);
                 lines.forEach(line -> {
+                    /* TODO be cleverer than split by comma - attributes may contain commas */
                     String[] split = line.split(",");
                     String oldId = split[0];
                     String value = split[1];

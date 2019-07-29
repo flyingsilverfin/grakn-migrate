@@ -34,16 +34,19 @@ public class Schema {
         importAttributes(session, schemaRoot);
         importEntities(session, schemaRoot);
 
-        // import attribute ownership
         importAttributeOwnership(session, schemaRoot);
 
-        // import roles played
         importRolePlayers(session, schemaRoot);
 
-        // import rules
         importRules(session, schemaRoot);
     }
 
+    /**
+     *
+     * @param session
+     * @param schemaRoot
+     * @throws IOException
+     */
     private static void importRules(GraknClient.Session session, Path schemaRoot) throws IOException {
         Path rules = schemaRoot.resolve("rule");
         Stream<String> lines = Files.lines(rules);

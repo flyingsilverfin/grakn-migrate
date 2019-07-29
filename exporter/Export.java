@@ -38,7 +38,7 @@ public class Export {
     public static void main(String[] args) throws IOException {
 
         if (args.length != 3) {
-            System.out.println("Error - correct arguments: [export parent directory] [grakn URI] [source keyspace]");
+            System.out.println("Error - correct arguments: [absolute export directory] [grakn URI] [source keyspace]");
             System.exit(1);
         }
 
@@ -61,6 +61,7 @@ public class Export {
         GraknClient.Transaction schemaTx = session.transaction().read();
         Set<Label> entityTypes = schemaTx.getSchemaConcept(Label.of("entity")).subs().filter(type -> !type.asEntityType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
         Set<Label> attributeTypes = schemaTx.getSchemaConcept(Label.of("attribute")).subs().filter(type -> !type.asAttributeType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
+        // TODO filter to expliclicit relations here so don't need to do filter with "@" below
         Set<Label> relationTypes = schemaTx.getSchemaConcept(Label.of("relation")).subs().filter(type -> !type.asRelationType().isAbstract()).map(SchemaConcept::label).collect(Collectors.toSet());
         schemaTx.close();
 
