@@ -249,7 +249,7 @@ public class Schema {
         }
         tx.close();
 
-        LOG.info("Export relations hierarchy");
+        LOG.info("Exported relations hierarchy");
     }
 
     private static void exportExplicitHierarchy(Stack<String> exportingTypes, File outputFile, GraknClient.Transaction tx, boolean append) throws IOException {

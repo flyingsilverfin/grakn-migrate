@@ -114,7 +114,7 @@ public class Export {
     private static void writeAttributes(GraknClient.Session session, Path root) throws IOException {
         GraknClient.Transaction tx = session.transaction().write();
         Set<Label> attributeTypes = tx.getSchemaConcept(Label.of("attribute")).subs().
-                filter(type -> !type.asEntityType().isAbstract()).
+                filter(type -> !type.asAttributeType().isAbstract()).
                 map(SchemaConcept::label).
                 collect(Collectors.toSet());
         tx.close();
@@ -204,6 +204,7 @@ public class Export {
                         writer.write(rolePlayers);
                         writer.write("),");
                     }
+                    writer.write("\n");
                 }
 
                 return relations.size();
@@ -214,7 +215,7 @@ public class Export {
     private static void writeOwnerships(GraknClient.Session session, Path root) throws IOException {
         GraknClient.Transaction tx = session.transaction().write();
         Set<Label> attributeTypes = tx.getSchemaConcept(Label.of("attribute")).subs().
-                filter(type -> !type.asEntityType().isAbstract()).
+                filter(type -> !type.asAttributeType().isAbstract()).
                 map(SchemaConcept::label).
                 collect(Collectors.toSet());
         tx.close();
