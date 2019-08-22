@@ -76,6 +76,9 @@ public class Import {
         performChecksum(session, startingCounts, importPath);
 
         LOG.info("Completed import into keyspace: " + targetKeyspace);
+
+        session.close();
+        client.close();
     }
 
     /**

@@ -68,15 +68,18 @@ public class Export {
 
         LOG.info("Writing checksums...");
         writeChecksums(session, exportRoot);
+
+        session.close();
+        client.close();
     }
 
 
     private static void writeEntities(GraknClient.Session session, Path root) throws IOException {
         GraknClient.Transaction tx = session.transaction().write();
-        Set<Label> entityTypes = tx.getSchemaConcept(Label.of("entity")).subs().
-                filter(type -> !type.asEntityType().isAbstract()).
-                map(SchemaConcept::label).
-                collect(Collectors.toSet());
+        Set<Label> entityTypes = tx.getSchemaConcept(Label.of("entity")).subs()
+                .filter(type -> !type.asEntityType().isAbstract())
+                .map(SchemaConcept::label)
+                .collect(Collectors.toSet());
         tx.close();
 
         Path outputFolder = root.resolve("entity");
@@ -113,10 +116,10 @@ public class Export {
 
     private static void writeAttributes(GraknClient.Session session, Path root) throws IOException {
         GraknClient.Transaction tx = session.transaction().write();
-        Set<Label> attributeTypes = tx.getSchemaConcept(Label.of("attribute")).subs().
-                filter(type -> !type.asAttributeType().isAbstract()).
-                map(SchemaConcept::label).
-                collect(Collectors.toSet());
+        Set<Label> attributeTypes = tx.getSchemaConcept(Label.of("attribute")).subs()
+                .filter(type -> !type.asAttributeType().isAbstract())
+                .map(SchemaConcept::label)
+                .collect(Collectors.toSet());
         tx.close();
 
         Path outputFolder = root.resolve("attribute");
@@ -214,10 +217,10 @@ public class Export {
 
     private static void writeOwnerships(GraknClient.Session session, Path root) throws IOException {
         GraknClient.Transaction tx = session.transaction().write();
-        Set<Label> attributeTypes = tx.getSchemaConcept(Label.of("attribute")).subs().
-                filter(type -> !type.asAttributeType().isAbstract()).
-                map(SchemaConcept::label).
-                collect(Collectors.toSet());
+        Set<Label> attributeTypes = tx.getSchemaConcept(Label.of("attribute")).subs()
+                .filter(type -> !type.asAttributeType().isAbstract())
+                .map(SchemaConcept::label)
+                .collect(Collectors.toSet());
         tx.close();
 
         Path outputFolder = root.resolve("ownership");
@@ -242,9 +245,9 @@ public class Export {
 
                 // TODO work out how to also store the implicit relation ID so we can handle concepts attached to implicit relations
 
-                List<Attribute<? extends Object>> attributes = attributeType.instances().
-                        filter(concept -> concept.type().label().equals(attributeTypeLabel)).
-                        collect(Collectors.toList());
+                List<Attribute<? extends Object>> attributes = attributeType.instances()
+                        .filter(concept -> concept.type().label().equals(attributeTypeLabel))
+                        .collect(Collectors.toList());
 
 
                 for (Attribute<? extends Object> attribute: attributes) {
