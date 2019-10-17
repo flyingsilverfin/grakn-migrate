@@ -6,14 +6,15 @@ workspace(name = "grakn_migrator")
 # Grakn Labs dependencies #
 ###########################
 
-load("//dependencies/graknlabs:dependencies.bzl", "graknlabs_build_tools", "graknlabs_protocol", "graknlabs_grakn_core", "graknlabs_client_java")
+load("//dependencies/graknlabs:dependencies.bzl", "graknlabs_build_tools", "graknlabs_protocol", "graknlabs_client_java", "graknlabs_grakn_core", "graknlabs_graql")
 graknlabs_build_tools()
-graknlabs_grakn_core()
 graknlabs_client_java()
+graknlabs_grakn_core()
 graknlabs_protocol()
-
-load("@graknlabs_grakn_core//dependencies/graknlabs:dependencies.bzl", "graknlabs_graql")
 graknlabs_graql()
+
+#load("@graknlabs_grakn_core//dependencies/graknlabs:dependencies.bzl", "graknlabs_graql")
+#graknlabs_graql()
 
 load("@graknlabs_build_tools//distribution:dependencies.bzl", "graknlabs_bazel_distribution")
 graknlabs_bazel_distribution()
@@ -66,6 +67,21 @@ com_github_grpc_grpc_deps()
 load("@stackb_rules_proto//java:deps.bzl", "java_grpc_compile")
 java_grpc_compile()
 
+###########################
+# Load Graql dependencies #
+###########################
+
+# Load ANTLR dependencies for Bazel
+load("@graknlabs_graql//dependencies/compilers:dependencies.bzl", "antlr_dependencies")
+antlr_dependencies()
+
+# Load ANTLR dependencies for ANTLR programs
+load("@rules_antlr//antlr:deps.bzl", "antlr_dependencies")
+antlr_dependencies()
+
+load("@graknlabs_graql//dependencies/maven:dependencies.bzl",
+graknlabs_graql_maven_dependencies = "maven_dependencies")
+graknlabs_graql_maven_dependencies()
 
 ################################
 # Load Grakn Core dependencies #
@@ -86,28 +102,16 @@ load("@graknlabs_build_tools//bazel:dependencies.bzl", "bazel_rules_docker")
 bazel_rules_docker()
 
 
-###########################
-# Load Graql dependencies #
-###########################
-
-load("@graknlabs_graql//dependencies/compilers:dependencies.bzl", "antlr_dependencies")
-antlr_dependencies()
-
-load("@rules_antlr//antlr:deps.bzl", "antlr_dependencies")
-antlr_dependencies()
-
-load("@graknlabs_graql//dependencies/maven:dependencies.bzl",
-graknlabs_graql_maven_dependencies = "maven_dependencies")
-graknlabs_graql_maven_dependencies()
-
-
 ##################################
 # Load Distribution dependencies #
 ##################################
 
-# TODO: rename the macro we load here to deploy_github_dependencies
-load("@graknlabs_bazel_distribution//github:dependencies.bzl", "github_dependencies_for_deployment")
-github_dependencies_for_deployment()
+load("@graknlabs_bazel_distribution//github:dependencies.bzl", "tcnksm_ghr")
+tcnksm_ghr()
+
+load("@graknlabs_bazel_distribution//common:dependencies.bzl", "bazelbuild_rules_pkg")
+bazelbuild_rules_pkg()
+
 
 
 #####################################

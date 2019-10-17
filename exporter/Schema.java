@@ -1,9 +1,9 @@
 package migrate.exporter;
 
 import grakn.client.GraknClient;
-import grakn.core.concept.Concept;
-import grakn.core.concept.Label;
-import grakn.core.concept.type.SchemaConcept;
+import grakn.client.concept.Concept;
+import grakn.client.concept.Label;
+import grakn.client.concept.SchemaConcept;
 import graql.lang.Graql;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,17 +1,17 @@
 package migrate.exporter;
 
 import grakn.client.GraknClient;
-import grakn.core.concept.Label;
-import grakn.core.concept.answer.Numeric;
-import grakn.core.concept.thing.Attribute;
-import grakn.core.concept.thing.Entity;
-import grakn.core.concept.thing.Relation;
-import grakn.core.concept.thing.Thing;
-import grakn.core.concept.type.AttributeType;
-import grakn.core.concept.type.EntityType;
-import grakn.core.concept.type.RelationType;
-import grakn.core.concept.type.Role;
-import grakn.core.concept.type.SchemaConcept;
+import grakn.client.answer.Numeric;
+import grakn.client.concept.Label;
+import grakn.client.concept.Attribute;
+import grakn.client.concept.Entity;
+import grakn.client.concept.Relation;
+import grakn.client.concept.Thing;
+import grakn.client.concept.AttributeType;
+import grakn.client.concept.EntityType;
+import grakn.client.concept.RelationType;
+import grakn.client.concept.Role;
+import grakn.client.concept.SchemaConcept;
 import graql.lang.Graql;
 import graql.lang.query.GraqlCompute;
 import org.slf4j.Logger;
@@ -59,6 +59,8 @@ public class Export {
         // export schema to files
         LOG.info("Exporting schema...");
         exportSchema(exportRoot, session);
+
+        GraqlSchemaBuilder graqlSchemaBuilder = new GraqlSchemaBuilder(session);
 
         // export data
         writeEntities(session, exportRoot);

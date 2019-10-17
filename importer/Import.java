@@ -1,15 +1,15 @@
 package migrate.importer;
 
 import grakn.client.GraknClient;
-import grakn.core.concept.Concept;
-import grakn.core.concept.ConceptId;
-import grakn.core.concept.answer.Numeric;
-import grakn.core.concept.thing.Attribute;
-import grakn.core.concept.thing.Relation;
-import grakn.core.concept.type.AttributeType;
-import grakn.core.concept.type.EntityType;
-import grakn.core.concept.type.RelationType;
-import grakn.core.concept.type.Role;
+import grakn.client.answer.Numeric;
+import grakn.client.concept.Attribute;
+import grakn.client.concept.AttributeType;
+import grakn.client.concept.Concept;
+import grakn.client.concept.ConceptId;
+import grakn.client.concept.EntityType;
+import grakn.client.concept.Relation;
+import grakn.client.concept.RelationType;
+import grakn.client.concept.Role;
 import graql.lang.Graql;
 import graql.lang.query.GraqlCompute;
 import org.slf4j.Logger;
