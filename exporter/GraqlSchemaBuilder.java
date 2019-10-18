@@ -6,6 +6,7 @@ import grakn.client.concept.AttributeType;
 import grakn.client.concept.EntityType;
 import grakn.client.concept.RelationType;
 import grakn.client.concept.Role;
+import grakn.client.concept.Rule;
 import grakn.client.concept.SchemaConcept;
 import grakn.client.concept.Type;
 import graql.lang.Graql;
@@ -20,6 +21,15 @@ import java.util.stream.Collectors;
 
 /**
  * Reconstruct a Graql schema to be outputted as a .gql file
+ *
+ *
+ * TODO
+ * 1. Test
+ *
+ * TODO nice to have
+ * 1. store xxxToParent as a tree, print out the schema in a DFS of the tree
+ * 2. sort alphabetically where possible
+ *
  */
 public class GraqlSchemaBuilder {
 
@@ -28,6 +38,7 @@ public class GraqlSchemaBuilder {
     private Map<String, String> attrToParent;
     private Map<String, String> entityToParent;
     private Map<String, String> relationToParent;
+    private Map<String, String> ruleToParent;
 
     // Attribute specific
     private Map<String, AttributeType.DataType<?>> attrDataType; // map Attribute label to DataType
@@ -43,9 +54,13 @@ public class GraqlSchemaBuilder {
 
     // Generic Keys
     private Map<String, Set<String>> keyship = new HashMap<>();
+
+    // Rule bodies
+    Map<String, String> ruleDefinitions;
+
     private GraknClient.Session session;
 
-    // TODO export rules
+
 
     public GraqlSchemaBuilder(GraknClient.Session session) {
         this.session = session;
@@ -54,6 +69,7 @@ public class GraqlSchemaBuilder {
             attributes(tx);
             relations(tx);
             entities(tx);
+            rules(tx);
         }
 
         System.out.println(toString());
@@ -82,7 +98,6 @@ public class GraqlSchemaBuilder {
             String parentType = attrToParent.get(attribute);
             builder.append(attribute).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parentType).append(", ");
             builder.append(Graql.Token.Property.DATA_TYPE).append(" ").append(dataTypeString(attrDataType.get(attribute)));
-
             appendPlaysHasKeys(builder, attribute);
             builder.append("; \n");
         }
@@ -93,8 +108,6 @@ public class GraqlSchemaBuilder {
         for (String entity : entityToParent.keySet()) {
             String parentEntity = entityToParent.get(entity);
             builder.append(entity).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parentEntity);
-            List<String> properties = playsHasKeysGraql(entity);
-
             appendPlaysHasKeys(builder, entity);
             builder.append("; \n");
         }
@@ -121,8 +134,40 @@ public class GraqlSchemaBuilder {
             builder.append("; \n");
         }
 
+        // implicit relation connections have to be in a separate `define` statement!
 
-        // TODO -- anything todo implicit relations has to be in a separate `define` statement!
+        // check if we have anything defined on top of implicit relations
+        List<String> implicitRelations = relationToParent.keySet().stream().filter(relation -> relation.startsWith("@")).sorted().collect(Collectors.toList());
+        boolean implicitConnections = false;
+        for (String relation : implicitRelations) {
+            implicitConnections |= ownership.containsKey(relation) || keyship.containsKey(relation) || playing.containsKey(relation);
+        }
+
+        if (ruleToParent.size() > 0 || implicitConnections) {
+            builder.append("\n\n");
+            builder.append("define \n");
+
+            // attach only the `has`, `plays` or `key`, but does not need to explicitly be declared with `sub`:w
+            if (implicitConnections) {
+                for (String implicitRelation : implicitRelations) {
+                    if (ownership.containsKey(implicitRelation) || keyship.containsKey(implicitRelation) || playing.containsKey(implicitRelation)) {
+                        builder.append(implicitRelation).append(" ");
+                        appendPlaysHasKeys(builder, implicitRelation);
+                    }
+                    builder.append("; \n");
+                }
+            }
+
+            if (ruleToParent.size() > 0) {
+                // add rules here in case they depend on implicit types
+                for (String rule : ruleToParent.keySet().stream().sorted().collect(Collectors.toList())) {
+                    String parent = ruleToParent.get(rule);
+                    builder.append(rule).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parent);
+                    builder.append("; \n");
+                }
+            }
+        }
+
 
         return builder.toString();
     }
@@ -246,6 +291,11 @@ public class GraqlSchemaBuilder {
         metaEntity.subs()
                 .filter(child -> !child.equals(metaEntity))
                 .forEach(this::putOwnershipsKeysRoles);
+    }
+
+    private void rules(GraknClient.Transaction tx) {
+        Rule metaRule = tx.getMetaRule();
+        this.ruleToParent = retrieveHierarchy(metaRule);
     }
 
     private void putOwnershipsKeysRoles(Type type) {
