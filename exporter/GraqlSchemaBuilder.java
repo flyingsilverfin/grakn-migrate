@@ -79,6 +79,12 @@ public class GraqlSchemaBuilder {
 
     /**
      * Produce the schema as a valid Graql string
+     *
+     *
+     * This should produce the same schema the user wrote, except in a potentially different order.
+     *
+     * This means that we should never export anything to do with implicit relations or roles,
+     * unless the user has extended the usage of the default implicit relations and roles!
      */
     @Override
     public String toString() {
@@ -86,14 +92,15 @@ public class GraqlSchemaBuilder {
         StringBuilder builder = new StringBuilder();
         builder.append("define \n");
 
-        for (String role : roleToParent.keySet().stream().sorted().collect(Collectors.toList())) {
+        // roles, filtering out implicit roles
+        for (String role : roleToParent.keySet().stream().filter(role -> !role.startsWith("@")).collect(Collectors.toList())) {
             String parentRole = roleToParent.get(role);
             builder.append(role).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parentRole).append(";\n");
         }
         builder.append("\n");
 
         // attributes
-        for (String attribute : attrToParent.keySet().stream().sorted().collect(Collectors.toList())) {
+        for (String attribute : attrToParent.keySet()) {
             String parentType = attrToParent.get(attribute);
             builder.append(attribute).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parentType).append(", ");
             builder.append(Graql.Token.Property.DATA_TYPE).append(" ").append(dataTypeString(attrDataType.get(attribute)));
@@ -104,7 +111,7 @@ public class GraqlSchemaBuilder {
 
 
         // entities
-        for (String entity : entityToParent.keySet().stream().sorted().collect(Collectors.toList())) {
+        for (String entity : entityToParent.keySet()) {
             String parentEntity = entityToParent.get(entity);
             builder.append(entity).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parentEntity);
             appendPlaysHasKeys(builder, entity);
@@ -112,8 +119,8 @@ public class GraqlSchemaBuilder {
         }
         builder.append("\n");
 
-        // relations
-        for (String relation : relationToParent.keySet().stream().sorted().collect(Collectors.toList())) {
+        // relations, filtering out out implicit relations
+        for (String relation : relationToParent.keySet().stream().filter(rel -> !rel.startsWith("@")).collect(Collectors.toList())) {
             String parentRelation = relationToParent.get(relation);
             builder.append(relation).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parentRelation);
 
@@ -133,12 +140,41 @@ public class GraqlSchemaBuilder {
             builder.append("; \n");
         }
 
+        // implicit relation connections have to be in a separate `define` statement!
+        // TODO no they don't, but they do need to be filtered heavily to only be included when they are non-default
 
-         for (String rule : ruleToParent.keySet().stream().sorted().collect(Collectors.toList())) {
-             String parent = ruleToParent.get(rule);
-             builder.append(rule).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parent);
-             builder.append("; \n");
-         }
+        // check if we have anything defined on top of implicit relations
+        List<String> implicitRelations = relationToParent.keySet().stream().filter(relation -> relation.startsWith("@")).sorted().collect(Collectors.toList());
+        boolean implicitConnections = false;
+        for (String relation : implicitRelations) {
+            implicitConnections |= ownership.containsKey(relation) || keyship.containsKey(relation) || playing.containsKey(relation);
+        }
+
+        if (ruleToParent.size() > 0 || implicitConnections) {
+            builder.append("\n\n");
+            builder.append("define \n");
+
+            // attach only the `has`, `plays` or `key`, but does not need to explicitly be declared with `sub`:w
+            if (implicitConnections) {
+                for (String implicitRelation : implicitRelations) {
+                    if (ownership.containsKey(implicitRelation) || keyship.containsKey(implicitRelation) || playing.containsKey(implicitRelation)) {
+                        builder.append(implicitRelation).append(" ");
+                        appendPlaysHasKeys(builder, implicitRelation);
+                    }
+                    builder.append("; \n");
+                }
+            }
+
+            if (ruleToParent.size() > 0) {
+                // add rules here in case they depend on implicit types
+                for (String rule : ruleToParent.keySet().stream().sorted().collect(Collectors.toList())) {
+                    String parent = ruleToParent.get(rule);
+                    builder.append(rule).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parent);
+                    builder.append("; \n");
+                }
+            }
+        }
+
 
         return builder.toString();
     }
