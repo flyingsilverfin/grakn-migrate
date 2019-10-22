@@ -1,0 +1,54 @@
+define
+    child sub role;
+    son sub child;
+
+    name sub attribute, datatype string;
+    subname sub name;
+    ownership-type sub attribute, datatype long;
+    ownership-date sub attribute, datatype date;
+    somekey sub attribute, datatype long;
+    aloneAttribute sub attribute, datatype string;
+
+    person sub entity,
+        has name,
+        has ownership-type,
+        key somekey,
+        plays owner,
+        plays parent,
+        plays child;
+
+    # child inherits everything from person
+    boy sub person,
+        plays son;
+
+    ownership sub relation,
+        relates owner,
+        relates owned;
+
+    object sub entity,
+        has subname,
+        plays owned;
+
+    contain sub relation,
+        relates contained,
+        relates container;
+
+    parentship sub relation,
+        relates parent,
+        relates child,
+        relates son;
+
+    transitive-ownership sub rule,
+    when {
+        (owner: $p1, owned: $obj1) isa ownership;
+        (container: $obj1, contained: $obj2) isa contain;
+    }, then {
+        (owner: $p1, owned: $obj2) isa ownership;
+    };
+
+# this doesn't not actually have to be in a separate define
+define
+    @has-ownership-type has ownership-date;
+    @has-aloneAttribute sub @has-attribute, has name;
+
+
