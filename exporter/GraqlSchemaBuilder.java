@@ -2,6 +2,7 @@ package migrate.exporter;
 
 
 import grakn.client.GraknClient;
+import grakn.client.answer.ConceptMap;
 import grakn.client.concept.AttributeType;
 import grakn.client.concept.EntityType;
 import grakn.client.concept.RelationType;
@@ -10,6 +11,7 @@ import grakn.client.concept.Rule;
 import grakn.client.concept.SchemaConcept;
 import grakn.client.concept.Type;
 import graql.lang.Graql;
+import graql.lang.query.GraqlGet;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,19 +19,20 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Reconstruct a Graql schema to be outputted as a .gql file
- *
- *
+ * <p>
+ * <p>
  * TODO
  * 1. Test
- *
+ * <p>
  * TODO nice to have
  * 1. store xxxToParent as a tree, print out the schema in a DFS of the tree
  * 2. sort alphabetically where possible
- *
  */
 public class GraqlSchemaBuilder {
 
@@ -56,14 +59,10 @@ public class GraqlSchemaBuilder {
     private Map<String, Set<String>> keyship = new HashMap<>();
 
     // Rule bodies
-    Map<String, String> ruleDefinitions;
-
-    private GraknClient.Session session;
-
+    Map<String, Pair<String, String>> ruleDefinitions = new HashMap<>();
 
 
     public GraqlSchemaBuilder(GraknClient.Session session) {
-        this.session = session;
         try (GraknClient.Transaction tx = session.transaction().read()) {
             roles(tx);
             attributes(tx);
@@ -79,10 +78,10 @@ public class GraqlSchemaBuilder {
 
     /**
      * Produce the schema as a valid Graql string
-     *
-     *
+     * <p>
+     * <p>
      * This should produce the same schema the user wrote, except in a potentially different order.
-     *
+     * <p>
      * This means that we should never export anything to do with implicit relations or roles,
      * unless the user has extended the usage of the default implicit relations and roles!
      */
@@ -150,9 +149,10 @@ public class GraqlSchemaBuilder {
             implicitConnections |= ownership.containsKey(relation) || keyship.containsKey(relation) || playing.containsKey(relation);
         }
 
-        if (ruleToParent.size() > 0 || implicitConnections) {
-            builder.append("\n\n");
-            builder.append("define \n");
+//        if (ruleToParent.size() > 0 || implicitConnections) {
+            // TODO figure out if/when exactly this has to be a separate define statement
+//            builder.append("\n\n");
+//            builder.append("define \n");
 
             // attach only the `has`, `plays` or `key`, but does not need to explicitly be declared with `sub`:w
             if (implicitConnections) {
@@ -169,11 +169,12 @@ public class GraqlSchemaBuilder {
                 // add rules here in case they depend on implicit types
                 for (String rule : ruleToParent.keySet().stream().sorted().collect(Collectors.toList())) {
                     String parent = ruleToParent.get(rule);
-                    builder.append(rule).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parent);
-                    builder.append("; \n");
+                    builder.append(rule).append(" ").append(Graql.Token.Property.SUB).append(" ").append(parent).append(", when { \n");
+                    builder.append(ruleDefinitions.get(rule).first()).append("}, then { \n");
+                    builder.append(ruleDefinitions.get(rule).second()).append("}; \n");
                 }
             }
-        }
+//        }
 
 
         return builder.toString();
@@ -249,7 +250,7 @@ public class GraqlSchemaBuilder {
 
     private void attributes(GraknClient.Transaction tx) {
         AttributeType<?> metaAttribute = tx.getMetaAttributeType();
-        this.attrToParent = retrieveHierarchy(metaAttribute);
+        this.attrToParent = retrieveHierarchy(metaAttribute, (concept) -> true);
         this.attrDataType = new HashMap<>();
         // export data types
         metaAttribute.subs()
@@ -261,18 +262,18 @@ public class GraqlSchemaBuilder {
                     AttributeType.DataType<?> dataType = child.dataType();
                     attrDataType.put(childLabel, dataType);
 
-                    putOwnershipsKeysRoles(child);
+                    putOwnershipsKeysRoles(tx, child);
                 });
     }
 
     private void roles(GraknClient.Transaction tx) {
         Role metaRole = tx.getMetaRole();
-        this.roleToParent = retrieveHierarchy(metaRole);
+        this.roleToParent = retrieveHierarchy(metaRole, (concept) -> true);
     }
 
     private void relations(GraknClient.Transaction tx) {
         RelationType metaRelation = tx.getMetaRelationType();
-        this.relationToParent = retrieveHierarchy(metaRelation);
+        this.relationToParent = retrieveHierarchy(metaRelation, (relationType) -> keepImplicitRelation(relationType.asRelationType()));
         this.relationRoles = new HashMap<>();
         metaRelation.subs()
                 .filter(child -> !child.equals(metaRelation))
@@ -288,50 +289,72 @@ public class GraqlSchemaBuilder {
                                 });
                     }
 
-                    putOwnershipsKeysRoles(child);
+                    putOwnershipsKeysRoles(tx, child);
                 });
     }
 
     private void entities(GraknClient.Transaction tx) {
         EntityType metaEntity = tx.getMetaEntityType();
-        this.entityToParent = retrieveHierarchy(metaEntity);
+        this.entityToParent = retrieveHierarchy(metaEntity, (concept) -> true);
         metaEntity.subs()
                 .filter(child -> !child.equals(metaEntity))
-                .forEach(this::putOwnershipsKeysRoles);
+                .forEach(entityType -> putOwnershipsKeysRoles(tx, entityType));
     }
 
     private void rules(GraknClient.Transaction tx) {
         Rule metaRule = tx.getMetaRule();
-        this.ruleToParent = retrieveHierarchy(metaRule);
+        this.ruleToParent = retrieveHierarchy(metaRule, (concept) -> true);
+
+        metaRule.subs()
+                .filter(child -> !child.equals(metaRule))
+                .forEach(rule -> ruleDefinitions.put(rule.label().toString(), new Pair<>(rule.when().toString(), rule.then().toString())));
     }
 
-    private void putOwnershipsKeysRoles(Type type) {
+    private void putOwnershipsKeysRoles(GraknClient.Transaction tx, Type type) {
         String label = type.label().toString();
         // add attributes owned
-        type.attributes().forEach(ownedAttribute -> {
-            ownership.putIfAbsent(label, new HashSet<>());
-            ownership.get(label).add(ownedAttribute.label().toString());
-        });
+        Set<AttributeType> keys = type.keys().collect(Collectors.toSet());
+        type.attributes()
+                .filter(attr -> !keys.contains(attr))
+                .forEach(ownedAttribute -> {
+                    ownership.putIfAbsent(label, new HashSet<>());
+                    ownership.get(label).add(ownedAttribute.label().toString());
+                });
 
         // add keys owned
-        type.keys().forEach(key -> {
+        keys.forEach(key -> {
             keyship.putIfAbsent(label, new HashSet<>());
             keyship.get(label).add(key.label().toString());
         });
 
-        // NOTE: filter out implicit roles played
-        type.playing()
-                .filter(role -> !role.isImplicit())
+        explicitRolesPlayedByThisTypeOnly(tx, type, type.sup())
                 .forEach(role -> {
                     playing.putIfAbsent(label, new HashSet<>());
                     playing.get(label).add(role.label().toString());
                 });
     }
 
+    private Stream<Role> explicitRolesPlayedByThisTypeOnly(GraknClient.Transaction tx, Type type, Type parentType) {
+        String typeLabel = type.label().toString();
+        String parentLabel = parentType.label().toString();
 
-    private Map<String, String> retrieveHierarchy(SchemaConcept root) {
+        // query for roles that are played by this type and not by the parent type using negation
+        GraqlGet getQuery = Graql.parse(
+                "match $t type " + typeLabel + ";" +
+                        "$p type " + parentLabel + ";" +
+                        "$t plays $role; $t sub $p; not { $p plays $role; }; get $role;").asGet();
+        Stream<ConceptMap> stream = tx.stream(getQuery);
+
+        // NOTE filters out the implicit roles
+        return stream.map(conceptMap -> conceptMap.get("role").asRole())
+                .filter(concept -> !concept.isImplicit());
+    }
+
+
+    private Map<String, String> retrieveHierarchy(SchemaConcept root, Function<SchemaConcept, Boolean> inclusionTest) {
         Map<String, String> hierarchy = new HashMap<>();
         root.subs()
+                .filter(inclusionTest::apply)
                 .filter(child -> !child.equals(root))
                 .forEach(child -> {
                     String childLabel = child.label().toString();
@@ -339,6 +362,34 @@ public class GraqlSchemaBuilder {
                     hierarchy.put(childLabel, parentLabel);
                 });
         return hierarchy;
+    }
+
+    private boolean keepImplicitRelation(RelationType relation) {
+        boolean nonImplicitRelates = relation.roles()
+                .anyMatch(role -> !role.isImplicit());
+        boolean playsRole = relation.playing().findAny().isPresent();
+        boolean ownsAttribute = relation.attributes().findAny().isPresent();
+        boolean hasKey = relation.keys().findAny().isPresent();
+
+        return nonImplicitRelates || playsRole || ownsAttribute || hasKey;
+    }
+
+    static class Pair<K, V> {
+        private K first;
+        private V second;
+
+        public Pair(K first, V second) {
+            this.first = first;
+            this.second = second;
+        }
+
+        K first() {
+            return first;
+        }
+
+        V second() {
+            return second;
+        }
     }
 
 }
