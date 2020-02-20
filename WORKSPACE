@@ -6,7 +6,8 @@ workspace(name = "grakn_migrator")
 # Grakn Labs dependencies #
 ###########################
 
-load("//dependencies/graknlabs:dependencies.bzl", "graknlabs_build_tools", "graknlabs_protocol", "graknlabs_client_java", "graknlabs_grakn_core", "graknlabs_graql")
+load("//dependencies/graknlabs:dependencies.bzl", "graknlabs_common", "graknlabs_build_tools", "graknlabs_protocol", "graknlabs_client_java", "graknlabs_grakn_core", "graknlabs_graql")
+graknlabs_common()
 graknlabs_build_tools()
 graknlabs_client_java()
 graknlabs_grakn_core()
