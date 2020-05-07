@@ -1,12 +1,13 @@
 package migrate.importer;
 
 import grakn.client.GraknClient;
-import grakn.client.concept.AttributeType;
-import grakn.client.concept.EntityType;
+import grakn.client.concept.DataType;
 import grakn.client.concept.Label;
-import grakn.client.concept.RelationType;
-import grakn.client.concept.Role;
 import grakn.client.concept.SchemaConcept;
+import grakn.client.concept.type.AttributeType;
+import grakn.client.concept.type.EntityType;
+import grakn.client.concept.type.RelationType;
+import grakn.client.concept.type.Role;
 import graql.lang.Graql;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,9 +94,9 @@ public class Schema {
             String ownerName = split[0];
             String attributeTypeName = split[1];
 
-            SchemaConcept owner = tx.getSchemaConcept(Label.of(ownerName));
+            SchemaConcept<?> owner = tx.getSchemaConcept(Label.of(ownerName));
             AttributeType<?> attributeType = tx.getAttributeType(attributeTypeName);
-            owner.asType().has(attributeType);
+            owner.asType().asRemote(tx).has(attributeType);
         });
 
         tx.commit();
@@ -114,32 +115,32 @@ public class Schema {
             String datatype = split[2];
 
             if (datatype.equals("Long")) {
-                AttributeType<Long> subAttribute = tx.putAttributeType(subAttributeName, AttributeType.DataType.LONG);
+                AttributeType.Remote<Long> subAttribute = tx.putAttributeType(subAttributeName, DataType.LONG);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<Long> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
                 }
             } else if (datatype.equals("String")) {
-                AttributeType<String> subAttribute = tx.putAttributeType(subAttributeName, AttributeType.DataType.STRING);
+                AttributeType.Remote<String> subAttribute = tx.putAttributeType(subAttributeName, DataType.STRING);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<String> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
                 }
             } else if (datatype.equals("Double")) {
-                AttributeType<Double> subAttribute = tx.putAttributeType(subAttributeName, AttributeType.DataType.DOUBLE);
+                AttributeType.Remote<Double> subAttribute = tx.putAttributeType(subAttributeName, DataType.DOUBLE);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<Double> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
                 }
             } else if (datatype.equals("LocalDateTime")) {
-                AttributeType<LocalDateTime> subAttribute = tx.putAttributeType(subAttributeName, AttributeType.DataType.DATE);
+                AttributeType.Remote<LocalDateTime> subAttribute = tx.putAttributeType(subAttributeName, DataType.DATE);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<LocalDateTime> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
                 }
             } else if (datatype.equals("Boolean")) {
 
-                AttributeType<Boolean> subAttribute = tx.putAttributeType(subAttributeName, AttributeType.DataType.BOOLEAN);
+                AttributeType.Remote<Boolean> subAttribute = tx.putAttributeType(subAttributeName, DataType.BOOLEAN);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<Boolean> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
@@ -162,8 +163,8 @@ public class Schema {
             String[] split = line.split(",");
             String subEntityName = split[0];
             String superEntityName = split[1];
-            EntityType subEntity = tx.putEntityType(Label.of(subEntityName));
-            EntityType superEntity = tx.getEntityType(superEntityName);
+            EntityType.Remote subEntity = tx.putEntityType(Label.of(subEntityName));
+            EntityType.Remote superEntity = tx.getEntityType(superEntityName);
             subEntity.sup(superEntity);
         });
 
@@ -178,7 +179,7 @@ public class Schema {
             String[] split = line.split(",");
             String subRoleName = split[0];
             String superRoleName = split[1];
-            Role subRole = tx.putRole(subRoleName);
+            Role.Remote subRole = tx.putRole(subRoleName);
             Role superRole = tx.getRole(superRoleName);
             subRole.sup(superRole);
         });
@@ -194,7 +195,7 @@ public class Schema {
             String relName = split[0];
             String superName = split[1];
 
-            RelationType relationType = tx.putRelationType(relName);
+            RelationType.Remote relationType = tx.putRelationType(relName);
             RelationType superType = tx.getRelationType(superName);
             relationType.sup(superType);
 

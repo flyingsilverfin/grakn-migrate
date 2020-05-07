@@ -3,15 +3,15 @@ package migrate.exporter;
 import grakn.client.GraknClient;
 import grakn.client.answer.Numeric;
 import grakn.client.concept.Label;
-import grakn.client.concept.Attribute;
-import grakn.client.concept.Entity;
-import grakn.client.concept.Relation;
-import grakn.client.concept.Thing;
-import grakn.client.concept.AttributeType;
-import grakn.client.concept.EntityType;
-import grakn.client.concept.RelationType;
-import grakn.client.concept.Role;
 import grakn.client.concept.SchemaConcept;
+import grakn.client.concept.thing.Attribute;
+import grakn.client.concept.thing.Entity;
+import grakn.client.concept.thing.Relation;
+import grakn.client.concept.thing.Thing;
+import grakn.client.concept.type.AttributeType;
+import grakn.client.concept.type.EntityType;
+import grakn.client.concept.type.RelationType;
+import grakn.client.concept.type.Role;
 import graql.lang.Graql;
 import graql.lang.query.GraqlCompute;
 import org.slf4j.Logger;
@@ -102,7 +102,7 @@ public class Export {
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
 
-                List<Entity> entities = entityType.instances()
+                List<Entity> entities = entityType.asRemote(tx).instances()
                         .filter(concept -> concept.type().label().equals(entityTypeLabel))
                         .collect(Collectors.toList());
 
@@ -143,9 +143,9 @@ public class Export {
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
 
-                List<Attribute<? extends Object>> attributes = attributeType.instances().
-                        filter(concept -> concept.type().label().equals(attributeTypeLabel)).
-                        collect(Collectors.toList());
+                List<Attribute<? extends Object>> attributes = attributeType.asRemote(tx).instances()
+                        .filter(concept -> concept.type().label().equals(attributeTypeLabel))
+                        .collect(Collectors.toList());
 
                 for (Attribute<? extends Object> attribute : attributes) {
                     String id = attribute.id().toString();
@@ -191,7 +191,7 @@ public class Export {
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
 
-                List<Relation> relations = relationType.instances()
+                List<Relation> relations = relationType.asRemote(tx).instances()
                         .filter(concept -> concept.type().label().equals(relationTypeLabel)) // filter out subtypes
                         .collect(Collectors.toList());
 
@@ -200,8 +200,8 @@ public class Export {
                     writer.write(id);
                     writer.write(",");
 
-                    Map<Role, Set<Thing>> roleSetMap = relation.rolePlayersMap();
-                    for (Map.Entry<Role, Set<Thing>> roleSetEntry : roleSetMap.entrySet()) {
+                    Map<Role.Remote, List<Thing.Remote<?,?>>> roleSetMap = relation.asRemote(tx).rolePlayersMap();
+                    for (Map.Entry<Role.Remote, List<Thing.Remote<?,?>>> roleSetEntry : roleSetMap.entrySet()) {
                         writer.write("(");
                         writer.write(roleSetEntry.getKey().label().toString());
                         writer.write(",");
@@ -247,14 +247,14 @@ public class Export {
 
                 // TODO work out how to also store the implicit relation ID so we can handle concepts attached to implicit relations
 
-                List<Attribute<? extends Object>> attributes = attributeType.instances()
+                List<Attribute<? extends Object>> attributes = attributeType.asRemote(tx).instances()
                         .filter(concept -> concept.type().label().equals(attributeTypeLabel))
                         .collect(Collectors.toList());
 
 
                 for (Attribute<? extends Object> attribute: attributes) {
                     String id = attribute.id().toString();
-                    List<Thing> attributeOwners = attribute.owners().collect(Collectors.toList());
+                    List<Thing> attributeOwners = attribute.asRemote(tx).owners().collect(Collectors.toList());
                     for (Thing owner : attributeOwners) {
                         writer.write(id);
                         writer.write(",");

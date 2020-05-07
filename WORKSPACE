@@ -6,16 +6,15 @@ workspace(name = "grakn_migrator")
 # Grakn Labs dependencies #
 ###########################
 
-load("//dependencies/graknlabs:dependencies.bzl", "graknlabs_common", "graknlabs_build_tools", "graknlabs_protocol", "graknlabs_client_java", "graknlabs_grakn_core", "graknlabs_graql")
+load("//dependencies/graknlabs:dependencies.bzl", "graknlabs_common", "graknlabs_build_tools", "graknlabs_client_java", "graknlabs_grakn_core", "graknlabs_graql")
 graknlabs_common()
 graknlabs_build_tools()
 graknlabs_client_java()
 graknlabs_grakn_core()
-graknlabs_protocol()
 graknlabs_graql()
 
-#load("@graknlabs_grakn_core//dependencies/graknlabs:dependencies.bzl", "graknlabs_graql")
-#graknlabs_graql()
+load("//dependencies/maven:dependencies.bzl", "maven_dependencies")
+maven_dependencies()
 
 load("@graknlabs_build_tools//distribution:dependencies.bzl", "graknlabs_bazel_distribution")
 graknlabs_bazel_distribution()
@@ -53,6 +52,17 @@ graknlabs_build_tools_ci_pip_install = "pip_install")
 graknlabs_build_tools_ci_pip_install()
 
 
+#################################
+# Load Client Java dependencies #
+#################################
+load("@graknlabs_client_java//dependencies/maven:dependencies.bzl",
+    graknlabs_client_java_maven_dependencies = "maven_dependencies")
+graknlabs_client_java_maven_dependencies()
+
+load("@graknlabs_client_java//dependencies/graknlabs:dependencies.bzl", "graknlabs_protocol", "graknlabs_grabl_tracing")
+graknlabs_protocol()
+graknlabs_grabl_tracing()
+
 
 ##############################
 # Load Protocol dependencies #
@@ -68,15 +78,14 @@ com_github_grpc_grpc_deps()
 load("@stackb_rules_proto//java:deps.bzl", "java_grpc_compile")
 java_grpc_compile()
 
+
 ###########################
 # Load Graql dependencies #
 ###########################
 
-# Load ANTLR dependencies for Bazel
 load("@graknlabs_graql//dependencies/compilers:dependencies.bzl", "antlr_dependencies")
 antlr_dependencies()
 
-# Load ANTLR dependencies for ANTLR programs
 load("@rules_antlr//antlr:deps.bzl", "antlr_dependencies")
 antlr_dependencies()
 
@@ -84,24 +93,17 @@ load("@graknlabs_graql//dependencies/maven:dependencies.bzl",
 graknlabs_graql_maven_dependencies = "maven_dependencies")
 graknlabs_graql_maven_dependencies()
 
+
 ################################
 # Load Grakn Core dependencies #
 ################################
-
-load("@graknlabs_grakn_core//dependencies/graknlabs:dependencies.bzl", "graknlabs_benchmark")
-graknlabs_benchmark()
 
 load("@graknlabs_grakn_core//dependencies/maven:dependencies.bzl",
 graknlabs_grakn_core_maven_dependencies = "maven_dependencies")
 graknlabs_grakn_core_maven_dependencies()
 
-load("@graknlabs_benchmark//dependencies/maven:dependencies.bzl",
-graknlabs_benchmark_maven_dependencies = "maven_dependencies")
-graknlabs_benchmark_maven_dependencies()
-
 load("@graknlabs_build_tools//bazel:dependencies.bzl", "bazel_rules_docker")
 bazel_rules_docker()
-
 
 ##################################
 # Load Distribution dependencies #
@@ -114,7 +116,6 @@ load("@graknlabs_bazel_distribution//common:dependencies.bzl", "bazelbuild_rules
 bazelbuild_rules_pkg()
 
 
-
 #####################################
 # Load Bazel common workspace rules #
 #####################################
@@ -122,9 +123,3 @@ bazelbuild_rules_pkg()
 # TODO: Figure out why this cannot be loaded at earlier at the top of the file
 load("@com_github_google_bazel_common//:workspace_defs.bzl", "google_common_workspace_rules")
 google_common_workspace_rules()
-
-# Generate a JSON document of commit hashes of all external workspace dependencies
-load("@graknlabs_bazel_distribution//common:rules.bzl", "workspace_refs")
-workspace_refs(
-    name = "graknlabs_client_java_workspace_refs"
-)

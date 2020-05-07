@@ -2,14 +2,14 @@ package migrate.importer;
 
 import grakn.client.GraknClient;
 import grakn.client.answer.Numeric;
-import grakn.client.concept.Attribute;
-import grakn.client.concept.AttributeType;
 import grakn.client.concept.Concept;
 import grakn.client.concept.ConceptId;
-import grakn.client.concept.EntityType;
-import grakn.client.concept.Relation;
-import grakn.client.concept.RelationType;
-import grakn.client.concept.Role;
+import grakn.client.concept.thing.Attribute;
+import grakn.client.concept.thing.Relation;
+import grakn.client.concept.type.AttributeType;
+import grakn.client.concept.type.EntityType;
+import grakn.client.concept.type.RelationType;
+import grakn.client.concept.type.Role;
 import graql.lang.Graql;
 import graql.lang.query.GraqlCompute;
 import org.slf4j.Logger;
@@ -139,7 +139,7 @@ public class Import {
         // create all the relation instances first
         for (IncompleteRelation incompleteRelation : incompleteRelations) {
             String relationTypeName = incompleteRelation.relationType;
-            RelationType relationType = tx.getRelationType(relationTypeName);
+            RelationType.Remote relationType = tx.getRelationType(relationTypeName);
             Relation relation = relationType.create();
             String oldRelationId = incompleteRelation.oldId;
             idRemapping.put(oldRelationId, relation.id());
@@ -150,12 +150,12 @@ public class Import {
         // all the IDs now exist
 
         for (IncompleteRelation incompleteRelation : incompleteRelations) {
-            Relation partialRelationInstance = incompleteRelation.incompleteRelation;
+            Relation.Remote partialRelationInstance = incompleteRelation.incompleteRelation.asRemote(tx);
 
             for (String roleName : incompleteRelation.oldIdsPerRole.keySet()) {
                 Role role = tx.getRole(roleName);
                 for (String oldRolePlayerId : incompleteRelation.oldIdsPerRole.get(roleName)) {
-                    partialRelationInstance.assign(role, tx.getConcept(idRemapping.get(oldRolePlayerId)));
+                    partialRelationInstance.assign(role, tx.getConcept(idRemapping.get(oldRolePlayerId)).asThing());
                 }
             }
         }
@@ -169,7 +169,7 @@ public class Import {
             ConceptId newAttrId = idRemapping.get(incompleteOwnership.attributeId);
             Concept owner = tx.getConcept(newOwnerId);
             Concept value = tx.getConcept(newAttrId);
-            owner.asThing().has(value.asAttribute());
+            owner.asThing().asRemote(tx).has(value.asAttribute());
             tx.commit();
         }
 
@@ -207,7 +207,7 @@ public class Import {
                         ConceptId newAttrId = idRemapping.get(oldAttrId);
                         Concept owner = tx.getConcept(newOwnerId);
                         Concept value = tx.getConcept(newAttrId);
-                        owner.asThing().has(value.asAttribute());
+                        owner.asThing().asRemote(tx).has(value.asAttribute());
                         tx.commit();
                     } else {
                         incompleteOwnerships.add(new IncompleteOwnership(oldOwnerId, oldAttrId));
@@ -305,13 +305,13 @@ public class Import {
                     } else {
                         // insert the complete relation with all its role players
                         GraknClient.Transaction tx = session.transaction().write();
-                        RelationType relationType = tx.getRelationType(relationName);
-                        Relation newRelation = relationType.create();
+                        RelationType.Remote relationType = tx.getRelationType(relationName).asRemote(tx);
+                        Relation.Remote newRelation = relationType.create();
                         for (String roleLabel : oldIdsPerRole.keySet()) {
                             Role role = tx.getRole(roleLabel);
                             for (String oldRolePlayerId : oldIdsPerRole.get(roleLabel)) {
                                 ConceptId newId = idRemapping.get(oldRolePlayerId);
-                                newRelation.assign(role, tx.getConcept(newId));
+                                newRelation.assign(role, tx.getConcept(newId).asThing());
                             }
                         }
                         idRemapping.put(oldId, newRelation.id());
@@ -358,7 +358,7 @@ public class Import {
 
                 lines.forEach(id -> {
                     GraknClient.Transaction tx = session.transaction().write();
-                    EntityType entityType = tx.getEntityType(entityName);
+                    EntityType.Remote entityType = tx.getEntityType(entityName);
                     ConceptId newId = entityType.create().id();
                     idRemapping.put(id, newId);
                     tx.commit();
@@ -377,7 +377,7 @@ public class Import {
         Files.list(attributesRoot).filter(path -> Files.isRegularFile(path)).forEach(attributeFile -> {
             String attributeName = attributeFile.getFileName().toString();
             GraknClient.Transaction tx = session.transaction().write();
-            AttributeType<Object> attributeType = tx.getAttributeType(attributeName);
+            AttributeType.Remote<Object> attributeType = tx.getAttributeType(attributeName);
             LOG.info("Import attributes of type: " + attributeName);
             try {
                 Stream<String> lines = Files.lines(attributeFile);

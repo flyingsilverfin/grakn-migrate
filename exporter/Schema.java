@@ -1,9 +1,9 @@
 package migrate.exporter;
 
 import grakn.client.GraknClient;
-import grakn.client.concept.Concept;
 import grakn.client.concept.Label;
 import grakn.client.concept.SchemaConcept;
+import grakn.client.concept.type.Type;
 import graql.lang.Graql;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -176,9 +176,9 @@ public class Schema {
             while (!exportingTypes.isEmpty()) {
                 // first iteration of subs of attribute is interesting because we have to store datatype too
                 String type = exportingTypes.pop();
-                Stream<Concept> subtypes = filteredDirectSub(tx, type);
+                Stream<? extends SchemaConcept<?>> subtypes = filteredDirectSub(tx, type);
                 subtypes.forEach(subtype -> {
-                    SchemaConcept parent = subtype.asType().sup();
+                    SchemaConcept parent = subtype.asType().asRemote(tx).sup();
                     String subtypeLabel = subtype.asType().label().toString();
                     exportingTypes.push(subtypeLabel);
                     try {
@@ -227,9 +227,10 @@ public class Schema {
         try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFileRelation), StandardCharsets.UTF_8))) {
             while (!exportingTypes.isEmpty()) {
                 String type = exportingTypes.pop();
-                Stream<Concept> subtypes = filteredDirectSub(tx, type);
+                Stream<? extends SchemaConcept<?>> subtypes = filteredDirectSub(tx, type);
                 subtypes.forEach(subtype -> {
-                    SchemaConcept parent = subtype.asType().sup();
+                    Type.Remote asRemote = subtype.asType().asRemote(tx);
+                    SchemaConcept parent = asRemote.sup();
                     String subtypeLabel = subtype.asType().label().toString();
                     exportingTypes.push(subtypeLabel);
                     try {
@@ -237,7 +238,7 @@ public class Schema {
                         writer.write(",");
                         writer.write(parent.label().toString());
                         writer.write(",");
-                        List<String> roles = subtype.asRelationType().roles().map(r -> r.label().toString()).collect(Collectors.toList());
+                        List<String> roles = asRemote.asRelationType().roles().map(r -> r.label().toString()).collect(Collectors.toList());
                         String allRoles = String.join(",", roles);
                         writer.write(allRoles);
                         writer.write("\n");
@@ -256,10 +257,10 @@ public class Schema {
         try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile, append), StandardCharsets.UTF_8))) {
             while (!exportingTypes.isEmpty()) {
                 String type = exportingTypes.pop();
-                Stream<Concept> subtypes = filteredDirectSub(tx, type);
+                Stream<? extends SchemaConcept<?>> subtypes = filteredDirectSub(tx, type);
                 subtypes.forEach(subtype -> {
-                    SchemaConcept parent = subtype.asSchemaConcept().sup();
-                    String subtypeLabel = subtype.asSchemaConcept().label().toString();
+                    SchemaConcept parent = subtype.asRemote(tx).sup();
+                    String subtypeLabel = subtype.label().toString();
                     exportingTypes.push(subtypeLabel);
                     try {
                         writer.write(subtypeLabel);
@@ -281,13 +282,13 @@ public class Schema {
      * @param schemaType
      * @return stream of direct sub concepts that aren't implicit types
      */
-    private static Stream<Concept> filteredDirectSub(GraknClient.Transaction tx, String schemaType) {
+    private static Stream<? extends SchemaConcept<?>> filteredDirectSub(GraknClient.Transaction tx, String schemaType) {
         return tx.stream(
                 Graql.match(
                         Graql.var("x").subX(schemaType))
                         .get("x"))
-                .map(map -> map.get("x"))
-                .filter(concept -> !concept.asSchemaConcept().label().toString().equals(schemaType))
-                .filter(concept -> !concept.asSchemaConcept().isImplicit());
+                .map(map -> map.get("x").asSchemaConcept())
+                .filter(concept -> !concept.label().toString().equals(schemaType))
+                .filter(concept -> !concept.asRemote(tx).isImplicit());
     }
 }

@@ -46,9 +46,10 @@ define
         (owner: $p1, owned: $obj2) isa ownership;
     };
 
-# this doesn't not actually have to be in a separate define
-define
-    @has-ownership-type has ownership-date;
-    @has-aloneAttribute sub @has-attribute, has name;
-
+#
+## this doesn't not actually have to be in a separate define
+#define
+#    @has-ownership-type has ownership-date;
+#    @has-aloneAttribute sub @has-attribute, has name;
+#
 
