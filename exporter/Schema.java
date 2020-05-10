@@ -91,18 +91,20 @@ public class Schema {
 
         GraknClient.Transaction tx = session.transaction().write();
 
-        tx.getSchemaConcept(Label.of("thing")).subs().forEach(schemaConcept -> {
-            schemaConcept.asType().attributes().forEach(attributeType -> {
-                try {
-                    writer.write(schemaConcept.label().toString());
-                    writer.write(",");
-                    writer.write(attributeType.label().toString());
-                    writer.write("\n");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-        });
+        tx.stream(Graql.parse("match $x sub thing; get;").asGet())
+                .map(answer -> answer.get("x").asSchemaConcept())
+                .forEach(schemaConcept -> {
+                    schemaConcept.asRemote(tx).asType().attributes().forEach(attributeType -> {
+                        try {
+                            writer.write(schemaConcept.label().toString());
+                            writer.write(",");
+                            writer.write(attributeType.label().toString());
+                            writer.write("\n");
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                });
 
         writer.flush();
         writer.close();
@@ -121,7 +123,8 @@ public class Schema {
         Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8));
 
         GraknClient.Transaction tx = session.transaction().write();
-        tx.getRole("role").subs()
+        tx.stream(Graql.parse("match $x sub role; get;").asGet())
+                .map(answer -> answer.get("x").asRole().asRemote(tx))
                 .filter(role -> !role.isImplicit())
                 .forEach(role -> {
                     role.players().forEach(rolePlayer -> {
@@ -278,6 +281,7 @@ public class Schema {
     /**
      * Since direct sub (`sub!`) is not in the concept API yet, do a graql query and filter out
      * the type itself, and implicit types
+     *
      * @param tx
      * @param schemaType
      * @return stream of direct sub concepts that aren't implicit types

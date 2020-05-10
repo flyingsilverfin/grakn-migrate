@@ -3,15 +3,21 @@ Unofficial Grakn data migrator. This is not thoroughly tested or actively mainta
 but can be very useful for getting some data sets across Grakn versions.
 
 Key shortfalls:
-* Cannot handle any schemas or data with `key`
-* Cannot handle data attached to implicit relations
-* Cannot Graql syntax mismatches between versions (rules are parsed via Graql)
+* Does not handle any schemas or data with `key`
+* Does not handle data attached to implicit relations
+* Cannot handle Graql syntax mismatches between versions (rules are parsed via Graql)
 * Probably cannot handle very large circular dependencies in the data (all circular relations are inserted in 1 transaction)
   * this occurs when relations are role players in other relations
 * _NO attributes_ with _commas_ until a more sophisticated exported file parser is implemented
 
 Since it all runs in a single thread for now, it is also not expected
 to be very performant when exporting and importing large amount of data.
+
+
+To export/import across different versions, different versions of the migrator may be required. Try checking out
+the tagged version of this source that is the closest to your grakn-core version. After export, the dumped data
+is stored in a [hopefully] unchanging way, so to import to a new version, check out the tagged version
+of this source that is the closest to your target grakn-core version, and run the importer.
 
 ## Export
 

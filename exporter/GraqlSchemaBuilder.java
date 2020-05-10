@@ -5,6 +5,7 @@ import grakn.client.GraknClient;
 import grakn.client.answer.ConceptMap;
 import grakn.client.concept.Concept;
 import grakn.client.concept.DataType;
+import grakn.client.concept.Label;
 import grakn.client.concept.Rule;
 import grakn.client.concept.DataType;
 import grakn.client.concept.SchemaConcept;
@@ -252,11 +253,12 @@ public class GraqlSchemaBuilder {
 
 
     private void attributes(GraknClient.Transaction tx) {
-        MetaType.Remote<?, ?> metaAttribute = tx.getMetaAttributeType();
-        this.attrToParent = retrieveHierarchy(metaAttribute, (concept) -> true);
+        SchemaConcept.Remote<?> metaAttribute = tx.getSchemaConcept(Label.of("attribute"));
+        this.attrToParent = retrieveHierarchy(tx, metaAttribute, (concept) -> true);
         this.attrDataType = new HashMap<>();
         // export data types
-        metaAttribute.subs()
+        tx.stream(Graql.parse("match $x sub attribute; get;").asGet())
+                .map(answer -> answer.get("x").asType().asRemote(tx))
                 .filter(child -> !child.equals(metaAttribute))
                 .forEach(child -> {
                     String childLabel = child.label().toString();
@@ -270,15 +272,16 @@ public class GraqlSchemaBuilder {
     }
 
     private void roles(GraknClient.Transaction tx) {
-        MetaType.Remote<?, ?> metaRole = tx.getMetaRole();
-        this.roleToParent = retrieveHierarchy(metaRole, (concept) -> true);
+        SchemaConcept.Remote<?> metaRole = tx.getSchemaConcept(Label.of("role"));
+        this.roleToParent = retrieveHierarchy(tx, metaRole, (concept) -> true);
     }
 
     private void relations(GraknClient.Transaction tx) {
-        MetaType.Remote<?, ?> metaRelation = tx.getMetaRelationType();
-        this.relationToParent = retrieveHierarchy(metaRelation, (relationType) -> keepImplicitRelation(relationType.asRelationType().asRemote(tx)));
+        SchemaConcept.Remote<?> metaRelation = tx.getSchemaConcept(Label.of("relation"));
+        this.relationToParent = retrieveHierarchy(tx, metaRelation, (relationType) -> keepImplicitRelation(relationType.asRelationType().asRemote(tx)));
         this.relationRoles = new HashMap<>();
-        metaRelation.subs()
+        tx.stream(Graql.parse("match $x sub relation; get;").asGet())
+                .map(answer -> answer.get("x").asType().asRemote(tx))
                 .filter(child -> !child.equals(metaRelation))
                 .forEach(child -> {
                     String childLabel = child.label().toString();
@@ -297,18 +300,19 @@ public class GraqlSchemaBuilder {
     }
 
     private void entities(GraknClient.Transaction tx) {
-        MetaType.Remote<?, ?> metaEntity = tx.getMetaEntityType();
-        this.entityToParent = retrieveHierarchy(metaEntity, (concept) -> true);
-        metaEntity.subs()
+        SchemaConcept.Remote<?> metaEntity = tx.getSchemaConcept(Label.of("entity"));
+        this.entityToParent = retrieveHierarchy(tx, metaEntity, (concept) -> true);
+        tx.stream(Graql.parse("match $x sub entity; get;").asGet())
+                .map(answer -> answer.get("x").asType().asRemote(tx))
                 .filter(child -> !child.equals(metaEntity))
                 .forEach(entityType -> putOwnershipsKeysRoles(tx, entityType));
     }
 
     private void rules(GraknClient.Transaction tx) {
-        MetaType.Remote<?, ?> metaRule = tx.getMetaRule();
-        this.ruleToParent = retrieveHierarchy(metaRule, (concept) -> true);
-
-        metaRule.subs()
+        SchemaConcept.Remote<?> metaRule = tx.getSchemaConcept(Label.of("rule"));
+        this.ruleToParent = retrieveHierarchy(tx, metaRule, (concept) -> true);
+        tx.stream(Graql.parse("match $x sub rule; get;").asGet())
+                .map(answer -> answer.get("x").asSchemaConcept().asRemote(tx))
                 .map(Concept.Remote::asRule)
                 .filter(child -> !child.equals(metaRule))
                 .forEach(rule -> ruleDefinitions.put(rule.label().toString(), new Pair<>(rule.when().toString(), rule.then().toString())));
@@ -356,9 +360,10 @@ public class GraqlSchemaBuilder {
     }
 
 
-    private Map<String, String> retrieveHierarchy(SchemaConcept.Remote<?> root, Function<SchemaConcept, Boolean> inclusionTest) {
+    private Map<String, String> retrieveHierarchy(GraknClient.Transaction tx, SchemaConcept.Remote<?> root, Function<SchemaConcept, Boolean> inclusionTest) {
         Map<String, String> hierarchy = new HashMap<>();
-        root.subs()
+        tx.stream(Graql.parse("match $x sub " + root.label() + "; get;").asGet())
+                .map(answer -> answer.get("x").asSchemaConcept().asRemote(tx))
                 .filter(inclusionTest::apply)
                 .filter(child -> !child.equals(root))
                 .forEach(child -> {
