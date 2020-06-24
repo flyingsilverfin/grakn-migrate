@@ -166,7 +166,6 @@ public class Export {
         GraknClient.Transaction tx = session.transaction().write();
         Set<Label> explicitRelationTypes = tx.getSchemaConcept(Label.of("relation")).subs()
                 .filter(type -> !type.asRelationType().isAbstract())
-                .filter(type -> !type.isImplicit())
                 .map(SchemaConcept::label)
                 .collect(Collectors.toSet());
         tx.close();
@@ -278,15 +277,15 @@ public class Export {
 
         // count number of entities
         GraqlCompute.Statistics query = Graql.compute().count().in("entity");
-        List<Numeric> execute = tx.execute(query);
+        List<Numeric> execute = tx.execute(query).get();
         int entities = execute.get(0).number().intValue();
         // count number of explicit relations
         query = Graql.compute().count().in("relation");
-        execute = tx.execute(query);
+        execute = tx.execute(query).get();
         int explicitRelations = execute.get(0).number().intValue();
         // count number of attributes
         query = Graql.compute().count().in("attribute");
-        execute = tx.execute(query);
+        execute = tx.execute(query).get();
         int attributes = execute.get(0).number().intValue();
         tx.close();
 

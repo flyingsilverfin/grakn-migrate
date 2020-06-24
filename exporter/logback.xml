@@ -11,4 +11,8 @@
     <logger name="migrate.exporter" level="INFO">
         <appender-ref ref="STDOUT"/>
     </logger>
+
+    <logger name="io.grpc" level="ERROR">
+        <appender-ref ref="STDOUT"/>
+    </logger>
 </configuration>

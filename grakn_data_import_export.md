@@ -13,7 +13,7 @@ Most of the complexity would lie in the import program, which has to re-map IDs 
 
 Exporting:
 1. dump entities' IDs, entity type to a file
-2. dump attribute IDs, type, datatype, value to a file 
+2. dump attribute IDs, type, valuetype, value to a file 
 3. dump relations' IDs, plus (role, role player ID), (role, role player ID)...
 4. dump attribute ownerships: owner ID, attribute ID
 
@@ -36,7 +36,7 @@ Entity files:
 * list of IDs (newline or comma separated, probably new line for consistency)
 
 Attribute files:
-* on each line: ID, datatype, attribute value
+* on each line: ID, valuetype, attribute value
 
 Relation files:
 * per line: relation ID, (role, role player ID), (role, role player ID)...

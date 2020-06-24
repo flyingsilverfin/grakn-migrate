@@ -91,7 +91,7 @@ public class Schema {
 
         GraknClient.Transaction tx = session.transaction().write();
 
-        tx.stream(Graql.parse("match $x sub thing; get;").asGet())
+        tx.stream(Graql.parse("match $x sub thing; get;").asGet()).get()
                 .map(answer -> answer.get("x").asSchemaConcept())
                 .forEach(schemaConcept -> {
                     schemaConcept.asRemote(tx).asType().attributes().forEach(attributeType -> {
@@ -123,9 +123,8 @@ public class Schema {
         Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8));
 
         GraknClient.Transaction tx = session.transaction().write();
-        tx.stream(Graql.parse("match $x sub role; get;").asGet())
+        tx.stream(Graql.parse("match $x sub role; get;").asGet()).get()
                 .map(answer -> answer.get("x").asRole().asRemote(tx))
-                .filter(role -> !role.isImplicit())
                 .forEach(role -> {
                     role.players().forEach(rolePlayer -> {
                         try {
@@ -164,7 +163,7 @@ public class Schema {
 
     /**
      * Write a two part file:
-     * attribute type, parent, datatype (first level attribute types that must declare data type)
+     * attribute type, parent, valuetype (first level attribute types that must declare data type)
      * ...
      * attribute type, parent attribute type  (inherit data type)
      * ...
@@ -189,7 +188,7 @@ public class Schema {
                         writer.write(",");
                         writer.write(parent.label().toString());
                         writer.write(",");
-                        writer.write(subtype.asAttributeType().dataType().dataClass().getSimpleName());
+                        writer.write(subtype.asAttributeType().valueType().valueClass().getSimpleName());
                         writer.write("\n");
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -291,8 +290,8 @@ public class Schema {
                 Graql.match(
                         Graql.var("x").subX(schemaType))
                         .get("x"))
+                .get()
                 .map(map -> map.get("x").asSchemaConcept())
-                .filter(concept -> !concept.label().toString().equals(schemaType))
-                .filter(concept -> !concept.asRemote(tx).isImplicit());
+                .filter(concept -> !concept.label().toString().equals(schemaType));
     }
 }

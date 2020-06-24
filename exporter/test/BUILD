@@ -13,6 +13,7 @@ java_test(
     data = [
         ":schema"
     ],
+    classpath_resources = ["//exporter:logback"],
     visibility = ["//visibility:public"]
 )
 

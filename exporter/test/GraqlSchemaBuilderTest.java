@@ -1,6 +1,7 @@
 package migrate.exporter;
 
 import grakn.client.GraknClient;
+import grakn.client.answer.ConceptMap;
 import graql.lang.Graql;
 import org.junit.Test;
 
@@ -10,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 /**
@@ -27,6 +29,72 @@ import java.util.stream.Collectors;
  * - the two extracted schemas should match ==> ensures sorting determinstically too
  */
 public class GraqlSchemaBuilderTest {
+    @Test
+    public void testing() {
+        try (GraknClient client = new GraknClient("localhost:48555")) {
+            try (GraknClient.Session session = client.session("test_put_2")) {
+                Random r = new Random(0);
+                try (GraknClient.Transaction tx = session.transaction().write()) {
+                    // load some number of attributes
+                    tx.execute(Graql.parse("define person sub entity, has age; age sub attribute, value long;").asDefine());
+                    for (int i = 0; i < 10000; i++) {
+                        long n = r.nextInt(100000);
+                        tx.execute(Graql.parse("insert $x isa person, has age " + n + ";").asInsert());
+                    }
+                    tx.commit();
+                }
+
+                long start = System.currentTimeMillis();
+                // use a match followed by an insert to do a PUT
+                try (GraknClient.Transaction tx = session.transaction().write()) {
+                    // load some number of attributes
+                    for (int i = 0; i < 10000; i++) {
+                        long n = r.nextInt();
+                        List<ConceptMap> exists = tx.execute(Graql.parse("match $x isa person, has age " + n + ";get; limit 1;").asGet()).get();
+                        if (exists.isEmpty()) {
+                            tx.execute(Graql.parse("insert $x isa person, has age " + n + ";").asInsert());
+                        }
+                    }
+                    tx.commit();
+                }
+                long end = System.currentTimeMillis();
+                System.out.println("Time to upsert using match and insert separately: " + (end - start));
+            }
+        }
+    }
+
+    @Test
+    public void testing_with_negation() {
+        try (GraknClient client = new GraknClient("localhost:48555")) {
+            try (GraknClient.Session session = client.session("test_put_negation6")) {
+                Random r = new Random(0);
+                try (GraknClient.Transaction tx = session.transaction().write()) {
+                    // load some number of attributes
+                    tx.execute(Graql.parse("define person sub entity, has age; age sub attribute, value long;").asDefine());
+                    for (int i = 0; i < 10000; i++) {
+                        long n = r.nextInt(100000);
+                        tx.execute(Graql.parse("insert $x isa person, has age " + n + ";").asInsert());
+                    }
+                    tx.commit();
+                }
+
+                long start = System.currentTimeMillis();
+                // use a match followed by an insert to do a PUT
+                try (GraknClient.Transaction tx = session.transaction().write()) {
+                    // load some number of attributes
+                    for (int i = 0; i < 10000; i++) {
+                        System.out.println(i);
+                        long n = r.nextInt(100000);
+//                        tx.execute(Graql.parse("match $x isa person; not { $x has age " + n + "; }; insert $x has age " + n + ";").asInsert());
+                        List<ConceptMap> answerWithNegation = tx.execute(Graql.parse("match $x isa person; not {$x has age " + n + " ;};get;").asGet()).get();
+                    }
+                    tx.commit();
+                }
+                long end = System.currentTimeMillis();
+                System.out.println("Time to upsert using negation: " + (end - start));
+            }
+        }
+    }
 
     @Test
     public void loadAndDumpSchema() throws IOException {

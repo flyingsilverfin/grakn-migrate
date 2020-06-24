@@ -2,12 +2,12 @@ define
     child sub role;
     son sub child;
 
-    name sub attribute, datatype string;
+    name sub attribute, value string;
     subname sub name;
-    ownership-type sub attribute, datatype long;
-    ownership-date sub attribute, datatype date;
-    somekey sub attribute, datatype long;
-    aloneAttribute sub attribute, datatype string;
+    ownership-type sub attribute, value long;
+    ownership-date sub attribute, value date;
+    somekey sub attribute, value long;
+    aloneAttribute sub attribute, value string;
 
     person sub entity,
         has name,

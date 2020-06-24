@@ -110,15 +110,15 @@ public class Import {
 
         // count number of entities
         GraqlCompute.Statistics query = Graql.compute().count().in("entity");
-        List<Numeric> execute = tx.execute(query);
+        List<Numeric> execute = tx.execute(query).get();
         int entities = execute.get(0).number().intValue();
         // count number of explicit relations
         query = Graql.compute().count().in("relation");
-        execute = tx.execute(query);
+        execute = tx.execute(query).get();
         int explicitRelations = execute.get(0).number().intValue();
         // count number of attributes
         query = Graql.compute().count().in("attribute");
-        execute = tx.execute(query);
+        execute = tx.execute(query).get();
         int attributes = execute.get(0).number().intValue();
         tx.close();
 
@@ -388,7 +388,7 @@ public class Import {
                     String value = split[1];
 
 
-                    Class<Object> dataClass = attributeType.dataType().dataClass();
+                    Class<Object> dataClass = attributeType.valueType().valueClass();
                     Attribute<Object> attrInstance;
                     if (dataClass.equals(Long.class)) {
                         attrInstance = attributeType.create(Long.parseLong(value));
@@ -401,7 +401,7 @@ public class Import {
                     } else if (dataClass.equals(LocalDateTime.class)) {
                         attrInstance = attributeType.create(LocalDateTime.parse(value));
                     } else {
-                        throw new RuntimeException("Unhandled datatype: " + dataClass);
+                        throw new RuntimeException("Unhandled valuetype: " + dataClass);
                     }
 
                     idRemapping.put(oldId, attrInstance.id());

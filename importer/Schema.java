@@ -1,9 +1,9 @@
 package migrate.importer;
 
 import grakn.client.GraknClient;
-import grakn.client.concept.DataType;
 import grakn.client.concept.Label;
 import grakn.client.concept.SchemaConcept;
+import grakn.client.concept.ValueType;
 import grakn.client.concept.type.AttributeType;
 import grakn.client.concept.type.EntityType;
 import grakn.client.concept.type.RelationType;
@@ -112,42 +112,42 @@ public class Schema {
             String subAttributeName = split[0];
             String superAttributeName = split[1];
 
-            String datatype = split[2];
+            String valuetype = split[2];
 
-            if (datatype.equals("Long")) {
-                AttributeType.Remote<Long> subAttribute = tx.putAttributeType(subAttributeName, DataType.LONG);
+            if (valuetype.equals("Long")) {
+                AttributeType.Remote<Long> subAttribute = tx.putAttributeType(subAttributeName, ValueType.LONG);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<Long> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
                 }
-            } else if (datatype.equals("String")) {
-                AttributeType.Remote<String> subAttribute = tx.putAttributeType(subAttributeName, DataType.STRING);
+            } else if (valuetype.equals("String")) {
+                AttributeType.Remote<String> subAttribute = tx.putAttributeType(subAttributeName, ValueType.STRING);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<String> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
                 }
-            } else if (datatype.equals("Double")) {
-                AttributeType.Remote<Double> subAttribute = tx.putAttributeType(subAttributeName, DataType.DOUBLE);
+            } else if (valuetype.equals("Double")) {
+                AttributeType.Remote<Double> subAttribute = tx.putAttributeType(subAttributeName, ValueType.DOUBLE);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<Double> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
                 }
-            } else if (datatype.equals("LocalDateTime")) {
-                AttributeType.Remote<LocalDateTime> subAttribute = tx.putAttributeType(subAttributeName, DataType.DATE);
+            } else if (valuetype.equals("LocalDateTime")) {
+                AttributeType.Remote<LocalDateTime> subAttribute = tx.putAttributeType(subAttributeName, ValueType.DATETIME);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<LocalDateTime> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
                 }
-            } else if (datatype.equals("Boolean")) {
+            } else if (valuetype.equals("Boolean")) {
 
-                AttributeType.Remote<Boolean> subAttribute = tx.putAttributeType(subAttributeName, DataType.BOOLEAN);
+                AttributeType.Remote<Boolean> subAttribute = tx.putAttributeType(subAttributeName, ValueType.BOOLEAN);
                 if (!superAttributeName.equals("attribute")) {
                     AttributeType<Boolean> superAttribute = tx.getAttributeType(superAttributeName);
                     subAttribute.sup(superAttribute);
                 }
             }
             else {
-                throw new RuntimeException("Unhandled attribute type datatype: " + datatype);
+                throw new RuntimeException("Unhandled attribute type valuetype: " + valuetype);
             }
         });
 
